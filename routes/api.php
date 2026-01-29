@@ -3,11 +3,15 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-use App\Http\Controllers\ExamReportController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ExamReportController;
+use App\Http\Controllers\JadwalUjianController;
+use App\Http\Controllers\UjianController;
+use App\Http\Controllers\PengawasController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
+Route::get('/pengawas/template-import', [PengawasController::class, 'template']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -17,6 +21,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/users', [AuthController::class, 'register']);
     Route::put('/users/{id}', [AuthController::class, 'update']);
     Route::delete('/users/{id}', [AuthController::class, 'destroy']);
+
+    // Jadwal Ujian management
+    Route::apiResource('jadwal-ujian', JadwalUjianController::class);
+
+    // Ujian (Event) management
+    Route::apiResource('ujians', UjianController::class);
+
+    // Pengawas management
+    Route::post('/pengawas/import', [PengawasController::class, 'import']);
+    Route::apiResource('pengawas', PengawasController::class);
 });
 
 Route::get('/init-data', [ExamReportController::class, 'getInitData']);

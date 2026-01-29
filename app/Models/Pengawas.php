@@ -8,4 +8,9 @@ class Pengawas extends Model
 {
     protected $table = 'pengawas';
     protected $guarded = [];
+
+    public function ujian()
+    {
+        return $this->belongsTo(Ujian::class);
+    }
 }
