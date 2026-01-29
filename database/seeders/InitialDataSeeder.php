@@ -12,6 +12,13 @@ class InitialDataSeeder extends Seeder
      */
     public function run(): void
     {
+        // 0. Users
+        \App\Models\User::create([
+            'name' => 'Administrator',
+            'username' => 'admin',
+            'password' => \Illuminate\Support\Facades\Hash::make('admin'),
+        ]);
+
         // 1. Pengawas
         $pengawas = [
             ['name' => 'Budi Santoso, S.Pd.', 'niy' => '198001012000011001'],

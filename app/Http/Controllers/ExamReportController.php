@@ -226,4 +226,27 @@ class ExamReportController extends Controller
             'presensi' => $presensi
         ]);
     }
+
+    public function healthCheck()
+    {
+        try {
+            \DB::connection()->getPdo();
+            return response()->json([
+                'status' => 'ok',
+                'database' => 'connected',
+                'details' => [
+                    'engine' => \DB::connection()->getDriverName(),
+                    'name' => \DB::connection()->getDriverName() === 'sqlite'
+                        ? basename(\DB::connection()->getDatabaseName())
+                        : \DB::connection()->getDatabaseName(),
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'database' => 'disconnected',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
