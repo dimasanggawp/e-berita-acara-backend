@@ -29,12 +29,24 @@ class PengawasController extends Controller
             'ujian_id' => 'required|exists:ujians,id',
         ]);
 
-        $pengawas = Pengawas::create($validated);
+        try {
+            $pengawas = \DB::transaction(function () use ($validated) {
+                return Pengawas::create($validated);
+            });
 
-        return response()->json([
-            'message' => 'Data pengawas berhasil ditambahkan',
-            'data' => $pengawas
-        ], 201);
+            return response()->json([
+                'message' => 'Data pengawas berhasil ditambahkan',
+                'data' => $pengawas
+            ], 201);
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Handle duplicate entry or constraint violations
+            if ($e->getCode() == 23000) {
+                return response()->json([
+                    'message' => 'Data pengawas dengan NIY yang sama sudah ada.'
+                ], 409);
+            }
+            throw $e;
+        }
     }
 
     /**
@@ -51,20 +63,31 @@ class PengawasController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $pengawas = Pengawas::findOrFail($id);
-
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'niy' => 'nullable|string|max:50',
             'ujian_id' => 'required|exists:ujians,id',
         ]);
 
-        $pengawas->update($validated);
+        try {
+            $pengawas = \DB::transaction(function () use ($id, $validated) {
+                $pengawas = Pengawas::lockForUpdate()->findOrFail($id);
+                $pengawas->update($validated);
+                return $pengawas;
+            });
 
-        return response()->json([
-            'message' => 'Data pengawas berhasil diperbarui',
-            'data' => $pengawas
-        ]);
+            return response()->json([
+                'message' => 'Data pengawas berhasil diperbarui',
+                'data' => $pengawas
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            if ($e->getCode() == 23000) {
+                return response()->json([
+                    'message' => 'Data pengawas dengan NIY yang sama sudah ada.'
+                ], 409);
+            }
+            throw $e;
+        }
     }
 
     /**

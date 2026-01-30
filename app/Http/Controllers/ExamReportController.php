@@ -71,61 +71,104 @@ class ExamReportController extends Controller
 
         $today = now()->startOfDay();
 
-        // [Dual-Mode] Cek apakah yang di-scan adalah kartu Pengawas
-        $pengawas = \App\Models\Pengawas::where('niy', $validated['kode_peserta'])->first();
-        if ($pengawas) {
-            $presensiPengawas = \App\Models\PresensiPengawas::where('pengawas_id', $pengawas->id)
-                ->whereDate('created_at', $today)
-                ->first();
+        // Retry logic for handling deadlocks
+        $maxRetries = 3;
+        $attempt = 0;
 
-            if (!$presensiPengawas) {
-                $presensiPengawas = \App\Models\PresensiPengawas::create([
-                    'pengawas_id' => $pengawas->id,
-                    'waktu_datang' => now(),
-                ]);
-            } else {
-                // Hanya update waktu_pulang jika sudah lewat 5 menit dari waktu_datang
-                if ($presensiPengawas->created_at->diffInMinutes(now()) >= 5) {
-                    $presensiPengawas->update(['waktu_pulang' => now()]);
+        while ($attempt < $maxRetries) {
+            try {
+                return \DB::transaction(function () use ($validated, $today) {
+                    // [Dual-Mode] Cek apakah yang di-scan adalah kartu Pengawas
+                    $pengawas = \App\Models\Pengawas::where('niy', $validated['kode_peserta'])->first();
+                    if ($pengawas) {
+                        // Use pessimistic locking to prevent race condition
+                        $presensiPengawas = \App\Models\PresensiPengawas::where('pengawas_id', $pengawas->id)
+                            ->whereDate('created_at', $today)
+                            ->lockForUpdate()
+                            ->first();
+
+                        if (!$presensiPengawas) {
+                            try {
+                                $presensiPengawas = \App\Models\PresensiPengawas::create([
+                                    'pengawas_id' => $pengawas->id,
+                                    'waktu_datang' => now(),
+                                ]);
+                            } catch (\Illuminate\Database\QueryException $e) {
+                                // Handle duplicate entry error (race condition caught by unique constraint)
+                                if ($e->getCode() == 23000) {
+                                    $presensiPengawas = \App\Models\PresensiPengawas::where('pengawas_id', $pengawas->id)
+                                        ->whereDate('created_at', $today)
+                                        ->first();
+                                } else {
+                                    throw $e;
+                                }
+                            }
+                        } else {
+                            // Hanya update waktu_pulang jika sudah lewat 5 menit dari waktu_datang
+                            if ($presensiPengawas->created_at->diffInMinutes(now()) >= 5) {
+                                $presensiPengawas->update(['waktu_pulang' => now()]);
+                            }
+                        }
+
+                        return response()->json([
+                            'type' => 'pengawas',
+                            'message' => "Presensi Pengawas [{$pengawas->name}] tercatat.",
+                            'presensi' => $presensiPengawas
+                        ]);
+                    }
+
+                    // Validasi apakah kode_peserta ada di tabel peserta_ujians
+                    $pesertaExists = \App\Models\PesertaUjian::where('nomor_peserta', $validated['kode_peserta'])->exists();
+                    if (!$pesertaExists) {
+                        return response()->json(['message' => "Kode Peserta [{$validated['kode_peserta']}] tidak terdaftar."], 404);
+                    }
+
+                    // Cari presensi hari ini untuk kode tersebut dengan pessimistic locking
+                    $presensi = \App\Models\PresensiPeserta::where('kode_peserta', $validated['kode_peserta'])
+                        ->whereDate('created_at', $today)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (!$presensi) {
+                        // Jika belum ada, catat sebagai waktu datang
+                        try {
+                            $presensi = \App\Models\PresensiPeserta::create([
+                                'kode_peserta' => $validated['kode_peserta'],
+                                'ujian_id' => $validated['ujian_id'] ?? null,
+                                'ruang_id' => $validated['ruang_id'] ?? null,
+                                'waktu_datang' => now(),
+                            ]);
+                        } catch (\Illuminate\Database\QueryException $e) {
+                            // Handle duplicate entry error (race condition caught by unique constraint)
+                            if ($e->getCode() == 23000) {
+                                $presensi = \App\Models\PresensiPeserta::where('kode_peserta', $validated['kode_peserta'])
+                                    ->whereDate('created_at', $today)
+                                    ->first();
+                            } else {
+                                throw $e;
+                            }
+                        }
+                        return response()->json(['type' => 'peserta', 'message' => 'Waktu datang peserta tercatat', 'data' => $presensi]);
+                    } else {
+                        // Jika sudah ada, catat sebagai waktu pulang (hanya jika waktu_pulang masih kosong)
+                        if (empty($presensi->waktu_pulang)) {
+                            $presensi->update([
+                                'waktu_pulang' => now(),
+                            ]);
+                            return response()->json(['type' => 'peserta', 'message' => 'Waktu pulang peserta tercatat', 'data' => $presensi]);
+                        } else {
+                            return response()->json(['type' => 'peserta', 'message' => 'Peserta sudah melakukan scan datang dan pulang hari ini', 'data' => $presensi], 400);
+                        }
+                    }
+                });
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Retry on deadlock (error code 40001)
+                if ($e->getCode() == 40001 && $attempt < $maxRetries - 1) {
+                    $attempt++;
+                    usleep(100000 * $attempt); // Exponential backoff: 100ms, 200ms
+                    continue;
                 }
-            }
-
-            return response()->json([
-                'type' => 'pengawas',
-                'message' => "Presensi Pengawas [{$pengawas->name}] tercatat.",
-                'presensi' => $presensiPengawas
-            ]);
-        }
-
-        // Validasi apakah kode_peserta ada di tabel peserta_ujians
-        $pesertaExists = \App\Models\PesertaUjian::where('nomor_peserta', $validated['kode_peserta'])->exists();
-        if (!$pesertaExists) {
-            return response()->json(['message' => "Kode Peserta [{$validated['kode_peserta']}] tidak terdaftar."], 404);
-        }
-
-        // Cari presensi hari ini untuk kode tersebut
-        $presensi = \App\Models\PresensiPeserta::where('kode_peserta', $validated['kode_peserta'])
-            ->whereDate('created_at', $today)
-            ->first();
-
-        if (!$presensi) {
-            // Jika belum ada, catat sebagai waktu datang
-            $presensi = \App\Models\PresensiPeserta::create([
-                'kode_peserta' => $validated['kode_peserta'],
-                'ujian_id' => $validated['ujian_id'] ?? null,
-                'ruang_id' => $validated['ruang_id'] ?? null,
-                'waktu_datang' => now(),
-            ]);
-            return response()->json(['type' => 'peserta', 'message' => 'Waktu datang peserta tercatat', 'data' => $presensi]);
-        } else {
-            // Jika sudah ada, catat sebagai waktu pulang (hanya jika waktu_pulang masih kosong)
-            if (empty($presensi->waktu_pulang)) {
-                $presensi->update([
-                    'waktu_pulang' => now(),
-                ]);
-                return response()->json(['type' => 'peserta', 'message' => 'Waktu pulang peserta tercatat', 'data' => $presensi]);
-            } else {
-                return response()->json(['type' => 'peserta', 'message' => 'Peserta sudah melakukan scan datang dan pulang hari ini', 'data' => $presensi], 400);
+                throw $e;
             }
         }
     }
@@ -199,32 +242,64 @@ class ExamReportController extends Controller
             return response()->json(['message' => "NIY [{$niy}] tidak terdaftar"], 404);
         }
 
-        // Catat Presensi Pengawas
-        $today = \Carbon\Carbon::today();
-        $presensi = \App\Models\PresensiPengawas::where('pengawas_id', $pengawas->id)
-            ->whereDate('created_at', $today)
-            ->first();
+        // Retry logic for handling deadlocks
+        $maxRetries = 3;
+        $attempt = 0;
 
-        if (!$presensi) {
-            $presensi = \App\Models\PresensiPengawas::create([
-                'pengawas_id' => $pengawas->id,
-                'waktu_datang' => now(),
-            ]);
-        } else {
-            // Hanya update waktu_pulang jika sudah lewat 5 menit dari waktu_datang
-            // Ini untuk mencegah scan ganda (double trigger) saat login
-            if ($presensi->created_at->diffInMinutes(now()) >= 5) {
-                $presensi->update([
-                    'waktu_pulang' => now(),
+        while ($attempt < $maxRetries) {
+            try {
+                $presensi = \DB::transaction(function () use ($pengawas) {
+                    // Catat Presensi Pengawas with pessimistic locking
+                    $today = \Carbon\Carbon::today();
+                    $presensi = \App\Models\PresensiPengawas::where('pengawas_id', $pengawas->id)
+                        ->whereDate('created_at', $today)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (!$presensi) {
+                        try {
+                            $presensi = \App\Models\PresensiPengawas::create([
+                                'pengawas_id' => $pengawas->id,
+                                'waktu_datang' => now(),
+                            ]);
+                        } catch (\Illuminate\Database\QueryException $e) {
+                            // Handle duplicate entry error (race condition caught by unique constraint)
+                            if ($e->getCode() == 23000) {
+                                $presensi = \App\Models\PresensiPengawas::where('pengawas_id', $pengawas->id)
+                                    ->whereDate('created_at', $today)
+                                    ->first();
+                            } else {
+                                throw $e;
+                            }
+                        }
+                    } else {
+                        // Hanya update waktu_pulang jika sudah lewat 5 menit dari waktu_datang
+                        // Ini untuk mencegah scan ganda (double trigger) saat login
+                        if ($presensi->created_at->diffInMinutes(now()) >= 5) {
+                            $presensi->update([
+                                'waktu_pulang' => now(),
+                            ]);
+                        }
+                    }
+
+                    return $presensi;
+                });
+
+                return response()->json([
+                    'message' => 'Login berhasil',
+                    'user' => $pengawas,
+                    'presensi' => $presensi
                 ]);
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Retry on deadlock (error code 40001)
+                if ($e->getCode() == 40001 && $attempt < $maxRetries - 1) {
+                    $attempt++;
+                    usleep(100000 * $attempt); // Exponential backoff
+                    continue;
+                }
+                throw $e;
             }
         }
-
-        return response()->json([
-            'message' => 'Login berhasil',
-            'user' => $pengawas,
-            'presensi' => $presensi
-        ]);
     }
 
     public function healthCheck()
