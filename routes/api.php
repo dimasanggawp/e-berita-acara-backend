@@ -31,7 +31,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Pengawas management
     Route::post('/pengawas/import', [PengawasController::class, 'import']);
     Route::apiResource('pengawas', PengawasController::class);
-    Route::get('/tahun-ajaran', [\App\Http\Controllers\TahunAjaranController::class, 'index']);
+    Route::apiResource('tahun-ajaran', \App\Http\Controllers\TahunAjaranController::class);
 });
 
 Route::get('/init-data', [ExamReportController::class, 'getInitData']);
