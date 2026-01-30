@@ -7,10 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class PesertaUjian extends Model
 {
     protected $guarded = [];
-    public function kelas()
-    {
-        return $this->belongsTo(Kelas::class);
-    }
+
 
 
 

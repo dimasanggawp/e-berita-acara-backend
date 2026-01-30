@@ -16,7 +16,7 @@ return new class extends Migration {
             $table->string('nisn')->unique();
             $table->string('nomor_peserta')->unique();
 
-            $table->foreignId('kelas_id')->constrained('kelas')->onDelete('cascade');
+            $table->string('kelas');
             $table->timestamps();
         });
     }

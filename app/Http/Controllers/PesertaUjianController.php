@@ -11,12 +11,11 @@ class PesertaUjianController extends Controller
      */
     public function index()
     {
-        return \App\Models\PesertaUjian::with(['kelas'])
-            ->whereHas('jadwalUjians', function ($query) {
-                $query->whereHas('ujian', function ($q) {
-                    $q->where('is_active', true);
-                });
-            })
+        return \App\Models\PesertaUjian::whereHas('jadwalUjians', function ($query) {
+            $query->whereHas('ujian', function ($q) {
+                $q->where('is_active', true);
+            });
+        })
             ->orderBy('nama', 'asc')
             ->get();
     }
@@ -27,7 +26,7 @@ class PesertaUjianController extends Controller
             'nama' => 'required|string|max:255',
             'nisn' => 'required|string|unique:peserta_ujians,nisn',
             'nomor_peserta' => 'required|string|unique:peserta_ujians,nomor_peserta',
-            'kelas_id' => 'required|exists:kelas,id',
+            'kelas' => 'required|string|max:255',
             'ujian_id' => 'required|exists:ujians,id',
         ]);
 
@@ -50,7 +49,7 @@ class PesertaUjianController extends Controller
             'nama' => 'required|string|max:255',
             'nisn' => 'required|string|unique:peserta_ujians,nisn,' . $id,
             'nomor_peserta' => 'required|string|unique:peserta_ujians,nomor_peserta,' . $id,
-            'kelas_id' => 'required|exists:kelas,id',
+            'kelas' => 'required|string|max:255',
             'ujian_id' => 'required|exists:ujians,id',
         ]);
 
@@ -62,7 +61,7 @@ class PesertaUjianController extends Controller
 
         $peserta->jadwalUjians()->sync($schedules->pluck('id'));
 
-        return $peserta->load(['kelas']);
+        return $peserta;
     }
 
     public function destroy(string $id)
