@@ -17,6 +17,7 @@ return new class extends Migration {
             $table->string('nomor_peserta')->unique();
 
             $table->string('kelas');
+            $table->string('ruang')->nullable();
             $table->timestamps();
         });
     }

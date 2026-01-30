@@ -27,6 +27,7 @@ class PesertaUjianController extends Controller
             'nisn' => 'required|string|unique:peserta_ujians,nisn',
             'nomor_peserta' => 'required|string|unique:peserta_ujians,nomor_peserta',
             'kelas' => 'required|string|max:255',
+            'ruang' => 'nullable|string|max:255',
             'ujian_id' => 'required|exists:ujians,id',
         ]);
 
@@ -50,6 +51,7 @@ class PesertaUjianController extends Controller
             'nisn' => 'required|string|unique:peserta_ujians,nisn,' . $id,
             'nomor_peserta' => 'required|string|unique:peserta_ujians,nomor_peserta,' . $id,
             'kelas' => 'required|string|max:255',
+            'ruang' => 'nullable|string|max:255',
             'ujian_id' => 'required|exists:ujians,id',
         ]);
 
