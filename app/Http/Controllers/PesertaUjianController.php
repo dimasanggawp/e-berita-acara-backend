@@ -12,6 +12,11 @@ class PesertaUjianController extends Controller
     public function index()
     {
         return \App\Models\PesertaUjian::with(['ruang', 'kelas'])
+            ->whereHas('jadwalUjians', function ($query) {
+                $query->whereHas('ujian', function ($q) {
+                    $q->where('is_active', true);
+                });
+            })
             ->orderBy('nama', 'asc')
             ->get();
     }
@@ -24,9 +29,19 @@ class PesertaUjianController extends Controller
             'nomor_peserta' => 'required|string|unique:peserta_ujians,nomor_peserta',
             'ruang_id' => 'required|exists:ruangs,id',
             'kelas_id' => 'required|exists:kelas,id',
+            'ujian_id' => 'required|exists:ujians,id',
         ]);
 
-        return \App\Models\PesertaUjian::create($validated);
+        $peserta = \App\Models\PesertaUjian::create($validated);
+
+        // Associate with all schedules in that exam for the selected room
+        $schedules = \App\Models\JadwalUjian::where('ujian_id', $validated['ujian_id'])
+            ->where('ruang_id', $validated['ruang_id'])
+            ->get();
+
+        $peserta->jadwalUjians()->sync($schedules->pluck('id'));
+
+        return $peserta;
     }
 
     public function update(Request $request, string $id)
@@ -39,9 +54,18 @@ class PesertaUjianController extends Controller
             'nomor_peserta' => 'required|string|unique:peserta_ujians,nomor_peserta,' . $id,
             'ruang_id' => 'required|exists:ruangs,id',
             'kelas_id' => 'required|exists:kelas,id',
+            'ujian_id' => 'required|exists:ujians,id',
         ]);
 
         $peserta->update($validated);
+
+        // Update associations
+        $schedules = \App\Models\JadwalUjian::where('ujian_id', $validated['ujian_id'])
+            ->where('ruang_id', $validated['ruang_id'])
+            ->get();
+
+        $peserta->jadwalUjians()->sync($schedules->pluck('id'));
+
         return $peserta->load(['ruang', 'kelas']);
     }
 
@@ -57,6 +81,7 @@ class PesertaUjianController extends Controller
         return response()->json([
             'ruangs' => \App\Models\Ruang::all(),
             'kelases' => \App\Models\Kelas::all(),
+            'ujians' => \App\Models\Ujian::where('is_active', true)->get(),
         ]);
     }
 }
