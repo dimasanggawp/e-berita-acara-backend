@@ -23,6 +23,8 @@ class UjianController extends Controller
     {
         $validated = $request->validate([
             'nama_ujian' => 'required|string|max:255',
+            'tahun_ajaran' => 'required',
+            'jenjang' => 'nullable|string',
             'is_active' => 'boolean',
         ]);
 
@@ -52,6 +54,8 @@ class UjianController extends Controller
 
         $validated = $request->validate([
             'nama_ujian' => 'required|string|max:255',
+            'tahun_ajaran' => 'required',
+            'jenjang' => 'nullable|string',
             'is_active' => 'boolean',
         ]);
 
