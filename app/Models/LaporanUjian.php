@@ -14,10 +14,7 @@ class LaporanUjian extends Model
         return $this->belongsTo(Ujian::class);
     }
 
-    public function ruang()
-    {
-        return $this->belongsTo(Ruang::class);
-    }
+
 
     public function mataPelajaran()
     {

@@ -12,10 +12,7 @@ class PesertaUjian extends Model
         return $this->belongsTo(Kelas::class);
     }
 
-    public function ruang()
-    {
-        return $this->belongsTo(Ruang::class);
-    }
+
 
     public function jadwalUjians()
     {

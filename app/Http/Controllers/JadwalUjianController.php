@@ -10,7 +10,7 @@ class JadwalUjianController extends Controller
     public function index()
     {
         return response()->json(
-            JadwalUjian::with(['ujian', 'pengawas', 'ruang', 'mataPelajaran.kelas', 'sesi'])
+            JadwalUjian::with(['ujian', 'pengawas', 'mataPelajaran.kelas', 'sesi'])
                 ->whereHas('ujian', function ($q) {
                     $q->where('is_active', true);
                 })
@@ -24,7 +24,6 @@ class JadwalUjianController extends Controller
         $validated = $request->validate([
             'ujian_id' => 'required|exists:ujians,id',
             'pengawas_id' => 'required|exists:pengawas,id',
-            'ruang_id' => 'required|exists:ruangs,id',
             'mapel_id' => 'required|exists:mata_pelajarans,id',
             'sesi_id' => 'required|exists:sesis,id',
             'mulai_ujian' => 'required|date',
@@ -37,7 +36,6 @@ class JadwalUjianController extends Controller
                 // Check for existing schedule to prevent duplicates
                 $existing = JadwalUjian::where('ujian_id', $validated['ujian_id'])
                     ->where('pengawas_id', $validated['pengawas_id'])
-                    ->where('ruang_id', $validated['ruang_id'])
                     ->where('mapel_id', $validated['mapel_id'])
                     ->where('sesi_id', $validated['sesi_id'])
                     ->where('mulai_ujian', $validated['mulai_ujian'])
@@ -53,7 +51,7 @@ class JadwalUjianController extends Controller
 
             return response()->json([
                 'message' => 'Jadwal ujian berhasil ditambahkan',
-                'data' => $jadwal->load(['ujian', 'pengawas', 'ruang', 'mataPelajaran.kelas', 'sesi'])
+                'data' => $jadwal->load(['ujian', 'pengawas', 'mataPelajaran.kelas', 'sesi'])
             ], 201);
         } catch (\Illuminate\Database\QueryException $e) {
             // Handle unique constraint violation
@@ -75,7 +73,6 @@ class JadwalUjianController extends Controller
         $validated = $request->validate([
             'ujian_id' => 'required|exists:ujians,id',
             'pengawas_id' => 'required|exists:pengawas,id',
-            'ruang_id' => 'required|exists:ruangs,id',
             'mapel_id' => 'required|exists:mata_pelajarans,id',
             'sesi_id' => 'required|exists:sesis,id',
             'mulai_ujian' => 'required|date',
@@ -93,7 +90,7 @@ class JadwalUjianController extends Controller
 
             return response()->json([
                 'message' => 'Jadwal ujian berhasil diperbarui',
-                'data' => $jadwal->load(['ujian', 'pengawas', 'ruang', 'mataPelajaran.kelas', 'sesi'])
+                'data' => $jadwal->load(['ujian', 'pengawas', 'mataPelajaran.kelas', 'sesi'])
             ]);
         } catch (\Illuminate\Database\QueryException $e) {
             // Handle unique constraint violation

@@ -34,7 +34,7 @@ return new class extends Migration {
         // Add unique constraint for jadwal_ujians to prevent duplicate schedules
         Schema::table('jadwal_ujians', function (Blueprint $table) {
             $table->unique(
-                ['ujian_id', 'pengawas_id', 'ruang_id', 'mapel_id', 'sesi_id', 'mulai_ujian'],
+                ['ujian_id', 'pengawas_id', 'mapel_id', 'sesi_id', 'mulai_ujian'],
                 'idx_jadwal_unique_schedule'
             );
         });

@@ -11,7 +11,6 @@ class ExamReportController extends Controller
         return response()->json([
             'pengawas' => \App\Models\Pengawas::all(),
             'ujians' => \App\Models\Ujian::where('is_active', true)->get(),
-            'ruangs' => \App\Models\Ruang::all(),
             'mata_pelajarans' => \App\Models\MataPelajaran::all(),
             'sesis' => \App\Models\Sesi::all(),
         ]);
@@ -21,7 +20,6 @@ class ExamReportController extends Controller
     {
         $validated = $request->validate([
             'ujian_id' => 'required|exists:ujians,id',
-            'ruang_id' => 'required|exists:ruangs,id',
             'pengawas_id' => 'required|exists:pengawas,id',
             'mapel_id' => 'required|exists:mata_pelajarans,id',
             'sesi_id' => 'required|exists:sesis,id',
@@ -43,7 +41,6 @@ class ExamReportController extends Controller
 
         $report = \App\Models\LaporanUjian::create([
             'ujian_id' => $validated['ujian_id'],
-            'ruang_id' => $validated['ruang_id'],
             'pengawas_id' => $validated['pengawas_id'],
             'mapel_id' => $validated['mapel_id'],
             'sesi_id' => $validated['sesi_id'],
@@ -66,7 +63,6 @@ class ExamReportController extends Controller
         $validated = $request->validate([
             'kode_peserta' => 'required|string',
             'ujian_id' => 'nullable|exists:ujians,id',
-            'ruang_id' => 'nullable|exists:ruangs,id',
         ]);
 
         $today = now()->startOfDay();
@@ -135,7 +131,6 @@ class ExamReportController extends Controller
                             $presensi = \App\Models\PresensiPeserta::create([
                                 'kode_peserta' => $validated['kode_peserta'],
                                 'ujian_id' => $validated['ujian_id'] ?? null,
-                                'ruang_id' => $validated['ruang_id'] ?? null,
                                 'waktu_datang' => now(),
                             ]);
                         } catch (\Illuminate\Database\QueryException $e) {
@@ -180,7 +175,7 @@ class ExamReportController extends Controller
             'pengawas_id' => 'required|exists:pengawas,id',
         ]);
 
-        $jadwals = \App\Models\JadwalUjian::with(['ruang', 'mataPelajaran.kelas', 'sesi'])
+        $jadwals = \App\Models\JadwalUjian::with(['mataPelajaran.kelas', 'sesi'])
             ->where('ujian_id', $request->ujian_id)
             ->where('pengawas_id', $request->pengawas_id)
             ->get();
@@ -196,9 +191,8 @@ class ExamReportController extends Controller
 
         $first = $jadwals->first();
 
-        // Ambil semua peserta untuk semua kombinasi kelas & ruang di jadwal tersebut
-        $peserta = \App\Models\PesertaUjian::whereIn('ruang_id', $jadwals->pluck('ruang_id'))
-            ->whereIn('kelas_id', $jadwals->pluck('mataPelajaran.kelas_id'))
+        // Ambil semua peserta untuk semua kombinasi kelas di jadwal tersebut
+        $peserta = \App\Models\PesertaUjian::whereIn('kelas_id', $jadwals->pluck('mataPelajaran.kelas_id'))
             ->get();
 
         return response()->json([
@@ -212,8 +206,6 @@ class ExamReportController extends Controller
                 'sesi_name' => $first->sesi->nama_sesi,
                 'mulai_ujian' => $first->mulai_ujian,
                 'ujian_berakhir' => $first->ujian_berakhir,
-                'ruang_id' => $first->ruang_id,
-                'ruang_name' => $first->ruang->name,
             ],
             'peserta' => $peserta
         ]);

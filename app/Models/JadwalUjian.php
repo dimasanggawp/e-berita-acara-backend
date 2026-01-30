@@ -18,10 +18,7 @@ class JadwalUjian extends Model
         return $this->belongsTo(Pengawas::class);
     }
 
-    public function ruang()
-    {
-        return $this->belongsTo(Ruang::class);
-    }
+
 
     public function mataPelajaran()
     {

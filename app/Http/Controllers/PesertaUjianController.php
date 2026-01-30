@@ -11,7 +11,7 @@ class PesertaUjianController extends Controller
      */
     public function index()
     {
-        return \App\Models\PesertaUjian::with(['ruang', 'kelas'])
+        return \App\Models\PesertaUjian::with(['kelas'])
             ->whereHas('jadwalUjians', function ($query) {
                 $query->whereHas('ujian', function ($q) {
                     $q->where('is_active', true);
@@ -27,16 +27,14 @@ class PesertaUjianController extends Controller
             'nama' => 'required|string|max:255',
             'nisn' => 'required|string|unique:peserta_ujians,nisn',
             'nomor_peserta' => 'required|string|unique:peserta_ujians,nomor_peserta',
-            'ruang_id' => 'required|exists:ruangs,id',
             'kelas_id' => 'required|exists:kelas,id',
             'ujian_id' => 'required|exists:ujians,id',
         ]);
 
         $peserta = \App\Models\PesertaUjian::create($validated);
 
-        // Associate with all schedules in that exam for the selected room
+        // Associate with all schedules in that exam
         $schedules = \App\Models\JadwalUjian::where('ujian_id', $validated['ujian_id'])
-            ->where('ruang_id', $validated['ruang_id'])
             ->get();
 
         $peserta->jadwalUjians()->sync($schedules->pluck('id'));
@@ -52,7 +50,6 @@ class PesertaUjianController extends Controller
             'nama' => 'required|string|max:255',
             'nisn' => 'required|string|unique:peserta_ujians,nisn,' . $id,
             'nomor_peserta' => 'required|string|unique:peserta_ujians,nomor_peserta,' . $id,
-            'ruang_id' => 'required|exists:ruangs,id',
             'kelas_id' => 'required|exists:kelas,id',
             'ujian_id' => 'required|exists:ujians,id',
         ]);
@@ -61,12 +58,11 @@ class PesertaUjianController extends Controller
 
         // Update associations
         $schedules = \App\Models\JadwalUjian::where('ujian_id', $validated['ujian_id'])
-            ->where('ruang_id', $validated['ruang_id'])
             ->get();
 
         $peserta->jadwalUjians()->sync($schedules->pluck('id'));
 
-        return $peserta->load(['ruang', 'kelas']);
+        return $peserta->load(['kelas']);
     }
 
     public function destroy(string $id)
@@ -79,7 +75,6 @@ class PesertaUjianController extends Controller
     public function meta()
     {
         return response()->json([
-            'ruangs' => \App\Models\Ruang::all(),
             'kelases' => \App\Models\Kelas::all(),
             'ujians' => \App\Models\Ujian::where('is_active', true)->get(),
         ]);
