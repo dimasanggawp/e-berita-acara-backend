@@ -42,10 +42,14 @@ class InitialDataSeeder extends Seeder
         // 3. Ujians (Events)
         $u1 = \App\Models\Ujian::create([
             'nama_ujian' => 'Sumatif Akhir Jenjang (SAJ) 2025',
+            'tahun_ajaran' => '2024/2025',
+            'jenjang' => 'XII',
             'is_active' => true,
         ]);
         $u2 = \App\Models\Ujian::create([
             'nama_ujian' => 'Penilaian Tengah Semester (PTS) Genap 2025',
+            'tahun_ajaran' => '2024/2025',
+            'jenjang' => 'X, XI',
             'is_active' => true,
         ]);
 
