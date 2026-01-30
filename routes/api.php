@@ -32,6 +32,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/pengawas/import', [PengawasController::class, 'import']);
     Route::apiResource('pengawas', PengawasController::class);
     Route::apiResource('tahun-ajaran', \App\Http\Controllers\TahunAjaranController::class);
+    Route::apiResource('peserta-ujian', \App\Http\Controllers\PesertaUjianController::class);
+    Route::get('/peserta-ujian-meta', [\App\Http\Controllers\PesertaUjianController::class, 'meta']);
 });
 
 Route::get('/init-data', [ExamReportController::class, 'getInitData']);
