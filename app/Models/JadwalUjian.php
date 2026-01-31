@@ -25,11 +25,6 @@ class JadwalUjian extends Model
         return $this->belongsTo(MataPelajaran::class, 'mapel_id');
     }
 
-    public function sesi()
-    {
-        return $this->belongsTo(Sesi::class, 'sesi_id');
-    }
-
     public function pesertaUjians()
     {
         return $this->belongsToMany(PesertaUjian::class, 'jadwal_peserta', 'jadwal_ujian_id', 'peserta_ujian_id');

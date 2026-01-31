@@ -10,10 +10,8 @@ return new class extends Migration {
      */
     public function up(): void
     {
-        Schema::create('sesis', function (Blueprint $table) {
-            $table->id();
-            $table->string('nama_sesi');
-            $table->timestamps();
+        Schema::table('peserta_ujians', function (Blueprint $table) {
+            $table->string('sesi')->nullable()->after('ruang');
         });
     }
 
@@ -22,6 +20,8 @@ return new class extends Migration {
      */
     public function down(): void
     {
-        Schema::dropIfExists('sesis');
+        Schema::table('peserta_ujians', function (Blueprint $table) {
+            $table->dropColumn('sesi');
+        });
     }
 };

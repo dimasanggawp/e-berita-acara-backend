@@ -21,10 +21,6 @@ class LaporanUjian extends Model
         return $this->belongsTo(MataPelajaran::class, 'mapel_id');
     }
 
-    public function sesi()
-    {
-        return $this->belongsTo(Sesi::class, 'sesi_id');
-    }
     public function kelas()
     {
         return $this->belongsTo(Kelas::class);

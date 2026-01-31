@@ -40,6 +40,7 @@ class PesertaUjianController extends Controller
             'nomor_peserta' => 'required|string|unique:peserta_ujians,nomor_peserta',
             'kelas' => 'required|string|max:255',
             'ruang' => 'nullable|string|max:255',
+            'sesi' => 'nullable|string|max:255',
             'ujian_id' => 'required|exists:ujians,id',
         ]);
 
@@ -64,6 +65,7 @@ class PesertaUjianController extends Controller
             'nomor_peserta' => 'required|string|unique:peserta_ujians,nomor_peserta,' . $id,
             'kelas' => 'required|string|max:255',
             'ruang' => 'nullable|string|max:255',
+            'sesi' => 'nullable|string|max:255',
             'ujian_id' => 'required|exists:ujians,id',
         ]);
 
@@ -102,9 +104,9 @@ class PesertaUjianController extends Controller
 
         $callback = function () {
             $file = fopen('php://output', 'w');
-            fputcsv($file, ['nama', 'nisn', 'nomor_peserta', 'kelas', 'ruang']);
+            fputcsv($file, ['nama', 'nisn', 'nomor_peserta', 'kelas', 'ruang', 'sesi']);
             // example row
-            fputcsv($file, ['Ahmad Dani', '1234567890', 'U001', 'XII-RPL 1', 'Lab 1']);
+            fputcsv($file, ['Ahmad Dani', '1234567890', 'U001', 'XII-RPL 1', 'Lab 1', 'Sesi 1']);
             fclose($file);
         };
 
@@ -145,6 +147,7 @@ class PesertaUjianController extends Controller
                         'nomor_peserta' => $data[2],
                         'kelas' => $data[3],
                         'ruang' => $data[4] ?? '',
+                        'sesi' => $data[5] ?? '',
                     ]
                 );
 

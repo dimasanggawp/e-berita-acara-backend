@@ -16,7 +16,6 @@ return new class extends Migration {
             $table->foreignId('pengawas_id')->constrained('pengawas')->onDelete('cascade');
 
             $table->foreignId('mapel_id')->constrained('mata_pelajarans')->onDelete('cascade');
-            $table->foreignId('sesi_id')->constrained('sesis')->onDelete('cascade');
             $table->dateTime('mulai_ujian');
             $table->dateTime('ujian_berakhir');
             $table->integer('total_siswa');

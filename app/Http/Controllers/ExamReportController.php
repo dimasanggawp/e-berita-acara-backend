@@ -12,7 +12,6 @@ class ExamReportController extends Controller
             'pengawas' => \App\Models\Pengawas::all(),
             'ujians' => \App\Models\Ujian::where('is_active', true)->get(),
             'mata_pelajarans' => \App\Models\MataPelajaran::all(),
-            'sesis' => \App\Models\Sesi::all(),
         ]);
     }
 
@@ -22,7 +21,6 @@ class ExamReportController extends Controller
             'ujian_id' => 'required|exists:ujians,id',
             'pengawas_id' => 'required|exists:pengawas,id',
             'mapel_id' => 'required|exists:mata_pelajarans,id',
-            'sesi_id' => 'required|exists:sesis,id',
             'mulai_ujian' => 'required|date',
             'ujian_berakhir' => 'required|date|after:mulai_ujian',
             'kelas_id' => 'required|exists:kelas,id',
@@ -43,7 +41,6 @@ class ExamReportController extends Controller
             'ujian_id' => $validated['ujian_id'],
             'pengawas_id' => $validated['pengawas_id'],
             'mapel_id' => $validated['mapel_id'],
-            'sesi_id' => $validated['sesi_id'],
             'mulai_ujian' => $validated['mulai_ujian'],
             'ujian_berakhir' => $validated['ujian_berakhir'],
             'kelas_id' => $validated['kelas_id'],
@@ -175,7 +172,7 @@ class ExamReportController extends Controller
             'pengawas_id' => 'required|exists:pengawas,id',
         ]);
 
-        $jadwals = \App\Models\JadwalUjian::with(['mataPelajaran.kelas', 'sesi'])
+        $jadwals = \App\Models\JadwalUjian::with(['mataPelajaran.kelas'])
             ->where('ujian_id', $request->ujian_id)
             ->where('pengawas_id', $request->pengawas_id)
             ->get();
@@ -202,8 +199,6 @@ class ExamReportController extends Controller
                 'kelas' => $kelas_names,
                 'kelas_id' => $first->mataPelajaran->kelas_id,
                 'total_siswa' => $total_siswa,
-                'sesi_id' => $first->sesi_id,
-                'sesi_name' => $first->sesi->nama_sesi,
                 'mulai_ujian' => $first->mulai_ujian,
                 'ujian_berakhir' => $first->ujian_berakhir,
             ],

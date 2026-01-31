@@ -75,13 +75,6 @@ class InitialDataSeeder extends Seeder
             ]);
         }
 
-        // 3.2 Sesi
-        $sesis = ['Sesi 01 (07:30 - 09:30)', 'Sesi 02 (10:00 - 12:00)', 'Sesi 03 (13:00 - 15:00)'];
-        $sesiModels = [];
-        foreach ($sesis as $s) {
-            $sesiModels[] = \App\Models\Sesi::create(['nama_sesi' => $s]);
-        }
-
         $todayDate = now()->format('Y-m-d');
 
         // 4. Jadwal Ujian (Linking everything)
@@ -89,7 +82,6 @@ class InitialDataSeeder extends Seeder
             'ujian_id' => $u1->id,
             'pengawas_id' => $proctorModels[0]->id,
             'mapel_id' => $mapelModels['Matematika']->id,
-            'sesi_id' => $sesiModels[0]->id,
             'mulai_ujian' => now()->setTime(7, 30, 0),
             'ujian_berakhir' => now()->setTime(9, 30, 0),
             'total_siswa' => 36,
@@ -99,7 +91,6 @@ class InitialDataSeeder extends Seeder
             'ujian_id' => $u1->id,
             'pengawas_id' => $proctorModels[1]->id,
             'mapel_id' => $mapelModels['Bahasa Indonesia']->id,
-            'sesi_id' => $sesiModels[0]->id,
             'mulai_ujian' => now()->setTime(7, 30, 0),
             'ujian_berakhir' => now()->setTime(9, 30, 0),
             'total_siswa' => 32,
@@ -109,7 +100,6 @@ class InitialDataSeeder extends Seeder
             'ujian_id' => $u1->id,
             'pengawas_id' => $proctorModels[2]->id,
             'mapel_id' => $mapelModels['Produktif RPL']->id,
-            'sesi_id' => $sesiModels[0]->id,
             'mulai_ujian' => now()->setTime(7, 30, 0),
             'ujian_berakhir' => now()->setTime(9, 30, 0),
             'total_siswa' => 18,
@@ -119,7 +109,6 @@ class InitialDataSeeder extends Seeder
             'ujian_id' => $u1->id,
             'pengawas_id' => $proctorModels[2]->id,
             'mapel_id' => $mapelModels['Produktif TKJ']->id,
-            'sesi_id' => $sesiModels[0]->id,
             'mulai_ujian' => now()->setTime(7, 30, 0),
             'ujian_berakhir' => now()->setTime(9, 30, 0),
             'total_siswa' => 15,
@@ -129,7 +118,6 @@ class InitialDataSeeder extends Seeder
             'ujian_id' => $u1->id,
             'pengawas_id' => $proctorModels[3]->id,
             'mapel_id' => $mapelModels['Bahasa Inggris']->id,
-            'sesi_id' => $sesiModels[0]->id,
             'mulai_ujian' => now()->setTime(7, 30, 0),
             'ujian_berakhir' => now()->setTime(9, 30, 0),
             'total_siswa' => 30,
