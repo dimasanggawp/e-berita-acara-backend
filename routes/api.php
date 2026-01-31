@@ -12,6 +12,8 @@ use App\Http\Controllers\PengawasController;
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::get('/pengawas/template-import', [PengawasController::class, 'template']);
+Route::get('/jadwal-ujian/template', [JadwalUjianController::class, 'template']);
+Route::get('/peserta-ujian/template', [\App\Http\Controllers\PesertaUjianController::class, 'downloadTemplate']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -23,6 +25,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/users/{id}', [AuthController::class, 'destroy']);
 
     // Jadwal Ujian management
+    Route::post('/jadwal-ujian/import', [JadwalUjianController::class, 'import']);
     Route::apiResource('jadwal-ujian', JadwalUjianController::class);
 
     // Ujian (Event) management
@@ -33,7 +36,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('pengawas', PengawasController::class);
     Route::apiResource('tahun-ajaran', \App\Http\Controllers\TahunAjaranController::class);
 
-    Route::get('/peserta-ujian/template', [\App\Http\Controllers\PesertaUjianController::class, 'downloadTemplate']);
     Route::post('/peserta-ujian/import', [\App\Http\Controllers\PesertaUjianController::class, 'importCsv']);
     Route::apiResource('peserta-ujian', \App\Http\Controllers\PesertaUjianController::class);
     Route::get('/peserta-ujian-meta', [\App\Http\Controllers\PesertaUjianController::class, 'meta']);

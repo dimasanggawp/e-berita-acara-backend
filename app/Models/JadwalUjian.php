@@ -18,8 +18,6 @@ class JadwalUjian extends Model
         return $this->belongsTo(Pengawas::class);
     }
 
-
-
     public function mataPelajaran()
     {
         return $this->belongsTo(MataPelajaran::class, 'mapel_id');
@@ -27,6 +25,7 @@ class JadwalUjian extends Model
 
     public function pesertaUjians()
     {
+        // Link students based on room if needed, or keep the pivot
         return $this->belongsToMany(PesertaUjian::class, 'jadwal_peserta', 'jadwal_ujian_id', 'peserta_ujian_id');
     }
 }
