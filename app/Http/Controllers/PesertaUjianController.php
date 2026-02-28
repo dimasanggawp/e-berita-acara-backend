@@ -8,6 +8,9 @@ use App\Models\JadwalUjian;
 use App\Models\Kelas;
 use App\Models\Ujian;
 use Illuminate\Support\Facades\Response;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class PesertaUjianController extends Controller
 {
@@ -97,34 +100,66 @@ class PesertaUjianController extends Controller
 
     public function downloadTemplate()
     {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Set Headers
+        $sheet->setCellValue('A1', 'Nama Lengkap');
+        $sheet->setCellValue('B1', 'NISN');
+        $sheet->setCellValue('C1', 'Nomor Peserta');
+        $sheet->setCellValue('D1', 'Kelas');
+        $sheet->setCellValue('E1', 'Ruang');
+        $sheet->setCellValue('F1', 'Sesi');
+
+        // Set Example Data
+        $sheet->setCellValue('A2', 'Ahmad Dani');
+        $sheet->setCellValue('B2', '1234567890');
+        $sheet->setCellValue('C2', 'U001');
+        $sheet->setCellValue('D2', 'XII-RPL 1');
+        $sheet->setCellValue('E2', 'Lab 1');
+        $sheet->setCellValue('F2', 'Sesi 1');
+
+        // Auto size columns
+        foreach (range('A', 'F') as $colId) {
+            $sheet->getColumnDimension($colId)->setAutoSize(true);
+        }
+
+        $writer = new Xlsx($spreadsheet);
+
         $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="template_peserta.csv"',
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="template_peserta.xlsx"',
+            'Cache-Control' => 'max-age=0',
         ];
 
-        $callback = function () {
-            $file = fopen('php://output', 'w');
-            fputcsv($file, ['nama', 'nisn', 'nomor_peserta', 'kelas', 'ruang', 'sesi']);
-            // example row
-            fputcsv($file, ['Ahmad Dani', '1234567890', 'U001', 'XII-RPL 1', 'Lab 1', 'Sesi 1']);
-            fclose($file);
+        $callback = function () use ($writer) {
+            $writer->save('php://output');
         };
 
-        return Response::stream($callback, 200, $headers);
+        return response()->stream($callback, 200, $headers);
     }
 
     public function importCsv(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:csv,txt',
+            'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:2048',
             'ujian_id' => 'required|exists:ujians,id',
         ]);
 
         $file = $request->file('file');
-        $handle = fopen($file->getRealPath(), 'r');
 
-        // Skip header
-        $header = fgetcsv($handle);
+        try {
+            $spreadsheet = IOFactory::load($file->getRealPath());
+            $sheet = $spreadsheet->getActiveSheet();
+            $dataRows = $sheet->toArray();
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Gagal membaca file.', 'error' => $e->getMessage()], 400);
+        }
+
+        // Remove header
+        if (count($dataRows) > 0) {
+            array_shift($dataRows);
+        }
 
         $count = 0;
         $errors = [];
@@ -132,9 +167,15 @@ class PesertaUjianController extends Controller
         $schedules = JadwalUjian::where('ujian_id', $request->ujian_id)->get();
         $scheduleIds = $schedules->pluck('id');
 
-        while (($data = fgetcsv($handle)) !== false) {
-            if (count($data) < 4)
-                continue; // Basic validation
+        foreach ($dataRows as $index => $data) {
+            if (empty(array_filter($data))) {
+                continue; // Skip empty rows
+            }
+
+            // Basic validation
+            if (count($data) < 4 || empty($data[0]) || empty($data[1]) || empty($data[2])) {
+                continue;
+            }
 
             try {
                 $peserta = PesertaUjian::updateOrCreate(
@@ -157,8 +198,6 @@ class PesertaUjianController extends Controller
                 $errors[] = "Error at row " . ($count + 2) . ": " . $e->getMessage();
             }
         }
-
-        fclose($handle);
 
         return response()->json([
             'message' => "Successfully imported $count records.",

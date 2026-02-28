@@ -6,6 +6,9 @@ use App\Models\Pengawas;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class PengawasController extends Controller
 {
@@ -109,17 +112,24 @@ class PengawasController extends Controller
     public function import(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:csv,txt|max:2048'
+            'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:2048',
+            'ujian_id' => 'required|exists:ujians,id'
         ]);
 
         $file = $request->file('file');
         $path = $file->getRealPath();
 
-        $data = array_map('str_getcsv', file($path));
-        $header = array_shift($data); // Remove header row
+        try {
+            $spreadsheet = IOFactory::load($path);
+            $sheet = $spreadsheet->getActiveSheet();
+            $data = $sheet->toArray();
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Gagal membaca file.', 'error' => $e->getMessage()], 400);
+        }
 
-        // Basic validation of header structure if needed
-        // Expecting: Name, NIY
+        if (count($data) > 0) {
+            array_shift($data); // Remove header row
+        }
 
         $count = 0;
         $errors = [];
@@ -127,8 +137,9 @@ class PengawasController extends Controller
         DB::beginTransaction();
         try {
             foreach ($data as $index => $row) {
-                if (count($row) < 1)
-                    continue;
+                if (empty(array_filter($row))) {
+                    continue; // Skip empty rows
+                }
 
                 // Assuming format: Name, NIY
                 $name = $row[0] ?? null;
@@ -174,17 +185,33 @@ class PengawasController extends Controller
      */
     public function template()
     {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Set Headers
+        $sheet->setCellValue('A1', 'Nama Lengkap');
+        $sheet->setCellValue('B1', 'NIY');
+
+        // Set Example Data
+        $sheet->setCellValue('A2', 'Drs. Contoh Guru, M.Pd.');
+        $sheet->setCellValue('B2', '123456789');
+        $sheet->setCellValue('A3', 'Siti Aminah, S.Pd.');
+        $sheet->setCellValue('B3', '');
+
+        // Auto size columns
+        $sheet->getColumnDimension('A')->setAutoSize(true);
+        $sheet->getColumnDimension('B')->setAutoSize(true);
+
+        $writer = new Xlsx($spreadsheet);
+
         $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="template_pengawas.csv"',
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="template_pengawas.xlsx"',
+            'Cache-Control' => 'max-age=0',
         ];
 
-        $callback = function () {
-            $file = fopen('php://output', 'w');
-            fputcsv($file, ['Nama Lengkap', 'NIY']);
-            fputcsv($file, ['Drs. Contoh Guru, M.Pd.', '123456789']);
-            fputcsv($file, ['Siti Aminah, S.Pd.', '']);
-            fclose($file);
+        $callback = function () use ($writer) {
+            $writer->save('php://output');
         };
 
         return response()->stream($callback, 200, $headers);

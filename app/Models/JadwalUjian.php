@@ -18,6 +18,11 @@ class JadwalUjian extends Model
         return $this->belongsTo(Pengawas::class);
     }
 
+    public function pengawasPengganti()
+    {
+        return $this->belongsTo(Pengawas::class, 'pengawas_pengganti_id');
+    }
+
     public function mataPelajaran()
     {
         return $this->belongsTo(MataPelajaran::class, 'mapel_id');

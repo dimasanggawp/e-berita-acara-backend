@@ -7,13 +7,16 @@ use App\Models\Pengawas;
 use App\Models\PesertaUjian;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class JadwalUjianController extends Controller
 {
     public function index()
     {
         return response()->json(
-            JadwalUjian::with(['ujian', 'pengawas'])
+            JadwalUjian::with(['ujian', 'pengawas', 'pengawasPengganti'])
                 ->whereHas('ujian', function ($q) {
                     $q->where('is_active', true);
                 })
@@ -27,6 +30,7 @@ class JadwalUjianController extends Controller
         $validated = $request->validate([
             'ujian_id' => 'required|exists:ujians,id',
             'pengawas_id' => 'required|exists:pengawas,id',
+            'pengawas_pengganti_id' => 'nullable|exists:pengawas,id',
             'ruang' => 'required|string|max:255',
             'nama_mapel' => 'required|string|max:255',
             'sesi' => 'nullable|string|max:255',
@@ -65,6 +69,7 @@ class JadwalUjianController extends Controller
         $validated = $request->validate([
             'ujian_id' => 'required|exists:ujians,id',
             'pengawas_id' => 'required|exists:pengawas,id',
+            'pengawas_pengganti_id' => 'nullable|exists:pengawas,id',
             'ruang' => 'required|string|max:255',
             'nama_mapel' => 'required|string|max:255',
             'sesi' => 'nullable|string|max:255',
@@ -113,57 +118,90 @@ class JadwalUjianController extends Controller
 
     public function template()
     {
-        $headers = ['Tanggal (YYYY-MM-DD)', 'Sesi', 'Jam (HH:mm-HH:mm)', 'Mapel', 'NIY Pengawas', 'Ruang'];
-        $example = ['2026-02-10', 'Sesi 1', '07:30-09:30', 'Bahasa Indonesia', '12345678', 'R.01'];
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
 
-        $callback = function () use ($headers, $example) {
-            $file = fopen('php://output', 'w');
-            fputcsv($file, $headers);
-            fputcsv($file, $example); // Contoh pengisian
-            fclose($file);
+        // Set Headers
+        $sheet->setCellValue('A1', 'Tanggal (YYYY-MM-DD)');
+        $sheet->setCellValue('B1', 'Sesi');
+        $sheet->setCellValue('C1', 'Jam (HH:mm-HH:mm)');
+        $sheet->setCellValue('D1', 'Mapel');
+        $sheet->setCellValue('E1', 'NIY Pengawas');
+        $sheet->setCellValue('F1', 'Ruang');
+        $sheet->setCellValue('G1', 'NIY Pengganti (Opsional)');
+
+        // Set Example Data
+        $sheet->setCellValue('A2', '2026-02-10');
+        $sheet->setCellValue('B2', 'Sesi 1');
+        $sheet->setCellValue('C2', '07:30-09:30');
+        $sheet->setCellValue('D2', 'Bahasa Indonesia');
+        $sheet->setCellValue('E2', '12345678');
+        $sheet->setCellValue('F2', 'R.01');
+        $sheet->setCellValue('G2', '87654321');
+
+        // Auto size columns
+        foreach (range('A', 'G') as $colId) {
+            $sheet->getColumnDimension($colId)->setAutoSize(true);
+        }
+
+        $writer = new Xlsx($spreadsheet);
+
+        $headers = [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="template_jadwal.xlsx"',
+            'Cache-Control' => 'max-age=0',
+        ];
+
+        $callback = function () use ($writer) {
+            $writer->save('php://output');
         };
-        return response()->stream($callback, 200, [
-            "Content-type" => "text/csv",
-            "Content-Disposition" => "attachment; filename=template_jadwal.csv",
-            "Pragma" => "no-cache",
-            "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
-            "Expires" => "0"
-        ]);
+
+        return response()->stream($callback, 200, $headers);
     }
 
     public function import(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:csv,txt',
+            'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:2048',
             'ujian_id' => 'required|exists:ujians,id',
         ]);
 
         $file = $request->file('file');
-        $csvData = file_get_contents($file);
-        $rows = explode("\n", $csvData);
-        $header = array_shift($rows); // Skip header
+
+        try {
+            $spreadsheet = IOFactory::load($file->getRealPath());
+            $sheet = $spreadsheet->getActiveSheet();
+            $rows = $sheet->toArray();
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Gagal membaca file.', 'error' => $e->getMessage()], 400);
+        }
+
+        if (count($rows) > 0) {
+            array_shift($rows); // Skip header
+        }
 
         $imported = 0;
         $errors = [];
 
         DB::beginTransaction();
         try {
-            foreach ($rows as $index => $row) {
-                if (empty(trim($row)))
-                    continue;
-                $data = str_getcsv($row);
+            foreach ($rows as $index => $data) {
+                if (empty(array_filter($data))) {
+                    continue; // Skip empty rows
+                }
 
-                if (count($data) < 6) {
+                if (count($data) < 6 || empty($data[0]) || empty($data[2]) || empty($data[3]) || empty($data[4]) || empty($data[5])) {
                     $errors[] = "Baris " . ($index + 2) . ": Data tidak lengkap (Minimal 6 kolom).";
                     continue;
                 }
 
                 $tanggalStr = trim($data[0]);
-                $sesi = trim($data[1]);
+                $sesi = trim($data[1] ?? '');
                 $jamMulaiSelesai = trim($data[2]);
                 $namaMapel = trim($data[3]);
                 $niyPengawas = trim($data[4]);
                 $ruang = trim($data[5]);
+                $niyPengganti = isset($data[6]) ? trim($data[6]) : null;
 
                 $times = explode('-', $jamMulaiSelesai);
                 if (count($times) < 2) {
@@ -176,8 +214,17 @@ class JadwalUjianController extends Controller
 
                 $pengawas = Pengawas::where('niy', $niyPengawas)->first();
                 if (!$pengawas) {
-                    $errors[] = "Baris " . ($index + 2) . ": Pengawas dengan NIY '$niyPengawas' tidak ditemukan.";
+                    $errors[] = "Baris " . ($index + 2) . ": Pengawas utama dengan NIY '$niyPengawas' tidak ditemukan.";
                     continue;
+                }
+
+                $pengawasPengganti = null;
+                if (!empty($niyPengganti)) {
+                    $pengawasPengganti = Pengawas::where('niy', $niyPengganti)->first();
+                    if (!$pengawasPengganti) {
+                        $errors[] = "Baris " . ($index + 2) . ": Pengawas pengganti dengan NIY '$niyPengganti' tidak ditemukan.";
+                        continue;
+                    }
                 }
 
                 // Hitung total siswa secara otomatis
@@ -193,6 +240,7 @@ class JadwalUjianController extends Controller
                 JadwalUjian::create([
                     'ujian_id' => $request->ujian_id,
                     'pengawas_id' => $pengawas->id,
+                    'pengawas_pengganti_id' => $pengawasPengganti ? $pengawasPengganti->id : null,
                     'ruang' => $ruang,
                     'nama_mapel' => $namaMapel,
                     'sesi' => $sesi,
