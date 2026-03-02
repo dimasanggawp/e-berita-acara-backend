@@ -40,6 +40,10 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+        'pengawas' => [
+            'driver' => 'sanctum',
+            'provider' => 'pengawas',
+        ],
     ],
 
     /*
@@ -63,6 +67,10 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', App\Models\User::class),
+        ],
+        'pengawas' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Pengawas::class,
         ],
 
         // 'users' => [

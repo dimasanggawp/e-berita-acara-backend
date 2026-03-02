@@ -16,10 +16,11 @@ class PresensiService
      *
      * @param string $kodePeserta
      * @param int|null $ujianId
+     * @param int|null $pengawasId
      * @return array
      * @throws \Exception
      */
-    public function handleScanPeserta(string $kodePeserta, ?int $ujianId): array
+    public function handleScanPeserta(string $kodePeserta, ?int $ujianId, ?int $pengawasId = null): array
     {
         $today = now()->startOfDay();
         $maxRetries = 3;
@@ -27,7 +28,7 @@ class PresensiService
 
         while ($attempt < $maxRetries) {
             try {
-                return DB::transaction(function () use ($kodePeserta, $ujianId, $today) {
+                return DB::transaction(function () use ($kodePeserta, $ujianId, $pengawasId, $today) {
                     // Check if scanned code belongs to Pengawas
                     $pengawas = Pengawas::where('niy', $kodePeserta)->first();
                     if ($pengawas) {
@@ -35,12 +36,70 @@ class PresensiService
                     }
 
                     // Validate if kode_peserta exists in peserta_ujians table
-                    $pesertaExists = PesertaUjian::where('nomor_peserta', $kodePeserta)->exists();
-                    if (!$pesertaExists) {
+                    $peserta = PesertaUjian::where('nomor_peserta', $kodePeserta)->first();
+                    if (!$peserta) {
                         return [
                             'status' => 404,
                             'data' => ['message' => "Kode Peserta [{$kodePeserta}] tidak terdaftar."]
                         ];
+                    }
+
+                    // Room Validation if pengawasId is provided
+                    if ($pengawasId && $ujianId) {
+                        $jadwalQuery = \App\Models\JadwalUjian::where('ujian_id', $ujianId)
+                            ->where(function ($q) use ($pengawasId) {
+                                $q->where('pengawas_id', $pengawasId)
+                                    ->orWhere('pengawas_pengganti_id', $pengawasId);
+                            });
+
+                        $jadwals = $jadwalQuery->get();
+
+                        if ($jadwals->isNotEmpty()) {
+                            $jadwalIds = $jadwals->pluck('id')->toArray();
+
+                            // Check if student is attached to any of these schedules
+                            $validRoom = false;
+
+                            // 1. Direct match by ruang & sesi
+                            foreach ($jadwals as $jadwal) {
+                                if (
+                                    $peserta->ujian_id == $ujianId &&
+                                    $peserta->ruang === $jadwal->ruang &&
+                                    (is_null($peserta->sesi) || is_null($jadwal->sesi) || $peserta->sesi === $jadwal->sesi)
+                                ) {
+                                    $validRoom = true;
+                                    break;
+                                }
+                            }
+
+                            // 2. Fallback to pivot table `jadwal_peserta`
+                            if (!$validRoom) {
+                                $validRoom = DB::table('jadwal_peserta')
+                                    ->where('peserta_ujian_id', $peserta->id)
+                                    ->whereIn('jadwal_ujian_id', $jadwalIds)
+                                    ->exists();
+                            }
+
+                            if (!$validRoom) {
+                                // Provide a helpful error by showing the rooms they are actually assigned to
+                                $expectedStr = "";
+                                if ($peserta->ruang) {
+                                    $expectedStr = "Ruang {$peserta->ruang}" . ($peserta->sesi ? " Sesi {$peserta->sesi}" : "");
+                                } else {
+                                    $actualJadwals = $peserta->jadwalUjians()->where('ujian_id', $ujianId)->get();
+                                    $expectedStr = $actualJadwals->map(function ($j) {
+                                        return "Ruang {$j->ruang}" . ($j->sesi ? " Sesi {$j->sesi}" : "");
+                                    })->implode(' / ') ?: "ruangan lain";
+                                }
+
+                                return [
+                                    'status' => 400,
+                                    'data' => [
+                                        'message' => "Peserta ini seharusnya berada di {$expectedStr}."
+                                    ]
+                                ];
+                            }
+                        }
                     }
 
                     // Process Peserta Attendance
@@ -93,7 +152,8 @@ class PresensiService
                     'data' => [
                         'message' => 'Login berhasil',
                         'user' => $pengawas,
-                        'presensi' => $presensi
+                        'presensi' => $presensi,
+                        'token' => $pengawas->createToken('pengawas-session')->plainTextToken,
                     ]
                 ];
             } catch (\Illuminate\Database\QueryException $e) {

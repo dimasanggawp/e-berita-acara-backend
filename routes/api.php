@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExamReportController;
 use App\Http\Controllers\JadwalUjianController;
 use App\Http\Controllers\UjianController;
@@ -41,10 +42,31 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/peserta-ujian-meta', [\App\Http\Controllers\PesertaUjianController::class, 'meta']);
 });
 
+Route::get('/dashboard/attendance-stats', [DashboardController::class, 'attendanceStats']);
 Route::get('/init-data', [ExamReportController::class, 'getInitData']);
 Route::post('/submit-report', [ExamReportController::class, 'store']);
 Route::post('/scan-peserta', [ExamReportController::class, 'scanPeserta']);
 Route::get('/presensi-today', [ExamReportController::class, 'getPresensiToday']);
 Route::get('/get-assignment', [ExamReportController::class, 'getAssignment']);
 Route::post('/login-niy', [ExamReportController::class, 'loginNiy']);
+
+// Pengawas auth routes (Sanctum token)
+Route::middleware('auth:pengawas')->group(function () {
+    Route::get('/pengawas-auth/me', function (Request $request) {
+        $pengawas = $request->user('pengawas');
+        $presensi = \App\Models\PresensiPengawas::where('pengawas_id', $pengawas->id)
+            ->whereDate('created_at', today())
+            ->first();
+        return response()->json([
+            'user' => $pengawas,
+            'presensi' => $presensi,
+        ]);
+    });
+
+    Route::post('/pengawas-auth/logout', function (Request $request) {
+        $request->user('pengawas')->currentAccessToken()->delete();
+        return response()->json(['message' => 'Logout berhasil']);
+    });
+});
+
 Route::get('/health-check', [ExamReportController::class, 'healthCheck']);

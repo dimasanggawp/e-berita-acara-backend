@@ -46,16 +46,20 @@ class JadwalUjianController extends Controller
             $query->where('sesi', $validated['sesi']);
         }
 
-        $validated['total_siswa'] = $query->count();
+        $validated['total_siswa'] = (clone $query)->count();
 
         try {
-            $jadwal = DB::transaction(function () use ($validated) {
-                return JadwalUjian::create($validated);
+            $jadwal = DB::transaction(function () use ($validated, $query) {
+                $j = JadwalUjian::create($validated);
+                // Sinkronisasi data siswa ke pivot tabel berdasarkan query yang sama
+                $pesertaIds = (clone $query)->pluck('id')->toArray();
+                $j->pesertaUjians()->sync($pesertaIds);
+                return $j;
             });
 
             return response()->json([
                 'message' => 'Jadwal ujian berhasil ditambahkan',
-                'data' => $jadwal->load(['ujian', 'pengawas'])
+                'data' => $jadwal->load(['ujian', 'pengawas', 'pengawasPengganti'])
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
@@ -89,15 +93,18 @@ class JadwalUjianController extends Controller
                     $query->where('sesi', $validated['sesi']);
                 }
 
-                $validated['total_siswa'] = $query->count();
+                $validated['total_siswa'] = (clone $query)->count();
 
                 $jadwal->update($validated);
+                $pesertaIds = (clone $query)->pluck('id')->toArray();
+                $jadwal->pesertaUjians()->sync($pesertaIds);
+
                 return $jadwal;
             });
 
             return response()->json([
                 'message' => 'Jadwal ujian berhasil diperbarui',
-                'data' => $jadwal->load(['ujian', 'pengawas'])
+                'data' => $jadwal->load(['ujian', 'pengawas', 'pengawasPengganti'])
             ]);
         } catch (\Exception $e) {
             return response()->json([

@@ -49,11 +49,15 @@ class PesertaUjianController extends Controller
 
         $peserta = PesertaUjian::create($validated);
 
-        // Associate with all schedules in that exam
-        $schedules = JadwalUjian::where('ujian_id', $validated['ujian_id'])
-            ->get();
+        // Associate with exact matching schedules
+        $query = JadwalUjian::where('ujian_id', $validated['ujian_id'])
+            ->where('ruang', $validated['ruang'] ?? '');
 
-        $peserta->jadwalUjians()->sync($schedules->pluck('id'));
+        if (!empty($validated['sesi'])) {
+            $query->where('sesi', $validated['sesi']);
+        }
+
+        $peserta->jadwalUjians()->sync($query->pluck('id'));
 
         return $peserta;
     }
@@ -74,11 +78,15 @@ class PesertaUjianController extends Controller
 
         $peserta->update($validated);
 
-        // Update associations
-        $schedules = JadwalUjian::where('ujian_id', $validated['ujian_id'])
-            ->get();
+        // Update associations to exact matching schedules
+        $query = JadwalUjian::where('ujian_id', $validated['ujian_id'])
+            ->where('ruang', $validated['ruang'] ?? '');
 
-        $peserta->jadwalUjians()->sync($schedules->pluck('id'));
+        if (!empty($validated['sesi'])) {
+            $query->where('sesi', $validated['sesi']);
+        }
+
+        $peserta->jadwalUjians()->sync($query->pluck('id'));
 
         return $peserta;
     }
@@ -164,9 +172,6 @@ class PesertaUjianController extends Controller
         $count = 0;
         $errors = [];
 
-        $schedules = JadwalUjian::where('ujian_id', $request->ujian_id)->get();
-        $scheduleIds = $schedules->pluck('id');
-
         foreach ($dataRows as $index => $data) {
             if (empty(array_filter($data))) {
                 continue; // Skip empty rows
@@ -178,6 +183,9 @@ class PesertaUjianController extends Controller
             }
 
             try {
+                $ruang = $data[4] ?? '';
+                $sesi = $data[5] ?? '';
+
                 $peserta = PesertaUjian::updateOrCreate(
                     [
                         'nisn' => $data[1],
@@ -187,12 +195,22 @@ class PesertaUjianController extends Controller
                         'nama' => $data[0],
                         'nomor_peserta' => $data[2],
                         'kelas' => $data[3],
-                        'ruang' => $data[4] ?? '',
-                        'sesi' => $data[5] ?? '',
+                        'ruang' => $ruang,
+                        'sesi' => $sesi,
                     ]
                 );
 
-                $peserta->jadwalUjians()->sync($scheduleIds);
+                // Find matching schedules that align with this student's room and session
+                $matchingScheduleQuery = JadwalUjian::where('ujian_id', $request->ujian_id)
+                    ->where('ruang', $ruang);
+
+                if (!empty($sesi)) {
+                    $matchingScheduleQuery->where('sesi', $sesi);
+                }
+
+                $matchingScheduleIds = $matchingScheduleQuery->pluck('id')->toArray();
+
+                $peserta->jadwalUjians()->sync($matchingScheduleIds);
                 $count++;
             } catch (\Exception $e) {
                 $errors[] = "Error at row " . ($count + 2) . ": " . $e->getMessage();
