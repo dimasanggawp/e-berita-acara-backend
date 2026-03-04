@@ -58,6 +58,28 @@ class AssignmentService
         $ruangan_names = $this->getRuanganNames($ruangIds);
         $peserta = $this->getParticipants($ujianId, $ruangIds, $sesiList, $jadwalIds);
 
+        // Determine kelas_id based on participants
+        $kelas_id = null;
+        $kelas_name = '-';
+        if (!empty($peserta) && $peserta->isNotEmpty()) {
+            $uniqueKelasIds = $peserta->pluck('kelas_id')->unique()->filter()->values();
+            if ($uniqueKelasIds->count() === 1) {
+                // Semua peserta dari 1 kelas yang sama (rombel utuh)
+                $kelas_id = $uniqueKelasIds->first();
+                $firstPeserta = $peserta->first();
+                $kelas_name = $firstPeserta->kelas?->nama_kelas ?? '-';
+            } else if ($uniqueKelasIds->count() > 1) {
+                // Peserta campuran dari beberapa kelas
+                $kelas_id = null;
+                $kelas_name = 'Gabungan (' . $uniqueKelasIds->count() . ' Kelas)';
+            }
+        }
+
+        // Use schedule's default kelas name if not determined from participants
+        if ($kelas_name === '-' && $kelas_names) {
+            $kelas_name = $kelas_names;
+        }
+
         return [
             'status' => 200,
             'data' => [
@@ -65,9 +87,9 @@ class AssignmentService
                     'mata_pelajarans' => $mata_pelajarans,
                     'mata_pelajaran' => !empty($mata_pelajarans) ? $mata_pelajarans[0]['nama'] : '-',
                     'mapel_id' => !empty($mata_pelajarans) ? $mata_pelajarans[0]['id'] : $first->id,
-                    'kelas' => $kelas_names ?: '-',
+                    'kelas' => $kelas_name,
                     'ruangan' => $ruangan_names,
-                    'kelas_id' => $first->mataPelajaran?->kelas_id,
+                    'kelas_id' => $kelas_id,
                     'total_siswa' => $total_siswa,
                     'mulai_ujian' => $first->mulai_ujian,
                     'ujian_berakhir' => $first->ujian_berakhir,

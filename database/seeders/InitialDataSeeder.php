@@ -27,12 +27,14 @@ class InitialDataSeeder extends Seeder
 
         $u1 = \App\Models\Ujian::create([
             'nama_ujian' => 'Sumatif Akhir Jenjang (SAJ) 2025',
+            'jenis_ujian' => 'Ujian Teori',
             'tahun_ajaran' => $tahunAktif->id,
             'jenjang' => 'XII',
             'is_active' => true,
         ]);
         $u2 = \App\Models\Ujian::create([
             'nama_ujian' => 'Penilaian Tengah Semester (PTS) Genap 2025',
+            'jenis_ujian' => 'Ujian Praktek',
             'tahun_ajaran' => $tahunAktif->id,
             'jenjang' => 'X, XI',
             'is_active' => true,

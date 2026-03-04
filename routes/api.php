@@ -51,6 +51,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/peserta-ujian/import', [\App\Http\Controllers\PesertaUjianController::class, 'importCsv']);
     Route::apiResource('peserta-ujian', \App\Http\Controllers\PesertaUjianController::class);
     Route::get('/peserta-ujian-meta', [\App\Http\Controllers\PesertaUjianController::class, 'meta']);
+
+    // Laporan (Berita Acara)
+    Route::get('/laporan', [\App\Http\Controllers\LaporanController::class, 'index']);
+    Route::get('/laporan/{id}', [\App\Http\Controllers\LaporanController::class, 'show']);
 });
 
 Route::get('/dashboard/attendance-stats', [DashboardController::class, 'attendanceStats']);

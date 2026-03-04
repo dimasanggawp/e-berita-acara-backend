@@ -43,10 +43,10 @@ class ExamReportController extends Controller
         $validated = $request->validate([
             'ujian_id' => 'required|exists:ujians,id',
             'pengawas_id' => 'required|exists:pengawas,id',
-            'mapel_id' => 'required|exists:mata_pelajarans,id',
+            'mapel_id' => 'nullable|exists:mata_pelajarans,id',
             'mulai_ujian' => 'required|date',
             'ujian_berakhir' => 'required|date|after:mulai_ujian',
-            'kelas_id' => 'required|exists:kelas,id',
+            'kelas_id' => 'nullable|exists:kelas,id',
             'total_expected' => 'required|integer',
             'total_present' => 'required|integer',
             'total_absent' => 'required|integer',
@@ -83,15 +83,15 @@ class ExamReportController extends Controller
         $report = \App\Models\LaporanUjian::create([
             'ujian_id' => $validated['ujian_id'],
             'pengawas_id' => $validated['pengawas_id'],
-            'mapel_id' => $validated['mapel_id'],
+            'mapel_id' => $validated['mapel_id'] ?? null,
             'mulai_ujian' => $validated['mulai_ujian'],
             'ujian_berakhir' => $validated['ujian_berakhir'],
-            'kelas_id' => $validated['kelas_id'],
+            'kelas_id' => $validated['kelas_id'] ?? null,
             'total_expected' => $validated['total_expected'],
             'total_present' => $validated['total_present'],
             'total_absent' => $validated['total_absent'],
-            'absent_details' => $validated['absent_details'],
-            'notes' => $validated['notes'],
+            'absent_details' => $validated['absent_details'] ?? null,
+            'notes' => $validated['notes'] ?? null,
             'signature_path' => $path,
         ]);
 
