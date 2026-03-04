@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExamReportController;
+use App\Http\Controllers\HealthCheckController;
 use App\Http\Controllers\JadwalUjianController;
 use App\Http\Controllers\UjianController;
 use App\Http\Controllers\PengawasController;
@@ -82,4 +83,4 @@ Route::middleware('auth:pengawas')->group(function () {
     });
 });
 
-Route::get('/health-check', [ExamReportController::class, 'healthCheck']);
+Route::get('/health-check', HealthCheckController::class);

@@ -139,6 +139,31 @@ class PresensiService
             ];
         }
 
+        // Check if proctor has any active schedule assignment
+        // They must be either:
+        // 1. The primary proctor (pengawas_id) on a schedule that has NO substitute, OR
+        // 2. The substitute proctor (pengawas_pengganti_id) on any schedule
+        $hasActiveSchedule = \App\Models\JadwalUjian::whereHas('ujian', function ($q) {
+            $q->where('is_active', true);
+        })
+            ->where(function ($q) use ($pengawas) {
+                // Primary proctor with no substitute assigned
+                $q->where(function ($sub) use ($pengawas) {
+                    $sub->where('pengawas_id', $pengawas->id)
+                        ->whereNull('pengawas_pengganti_id');
+                })
+                    // OR they are the substitute proctor
+                    ->orWhere('pengawas_pengganti_id', $pengawas->id);
+            })
+            ->exists();
+
+        if (!$hasActiveSchedule) {
+            return [
+                'status' => 403,
+                'data' => ['message' => "Pengawas [{$pengawas->name}] tidak memiliki jadwal ujian aktif. Kemungkinan sudah digantikan oleh pengawas lain."]
+            ];
+        }
+
         $maxRetries = 3;
         $attempt = 0;
 

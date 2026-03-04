@@ -5,14 +5,17 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 
 use App\Services\PresensiService;
+use App\Services\AssignmentService;
 
 class ExamReportController extends Controller
 {
     protected $presensiService;
+    protected $assignmentService;
 
-    public function __construct(PresensiService $presensiService)
+    public function __construct(PresensiService $presensiService, AssignmentService $assignmentService)
     {
         $this->presensiService = $presensiService;
+        $this->assignmentService = $assignmentService;
     }
 
     public function getInitData()
@@ -58,25 +61,21 @@ class ExamReportController extends Controller
             $img = @imagecreatefromstring(file_get_contents($file));
 
             if ($img !== false) {
-                // Preserve transparency
                 imagealphablending($img, false);
                 imagesavealpha($img, true);
 
                 $filename = 'signatures/' . \Illuminate\Support\Str::random(40) . '.png';
                 $fullPath = storage_path('app/public/' . $filename);
 
-                // Ensure directory exists
                 if (!file_exists(dirname($fullPath))) {
                     mkdir(dirname($fullPath), 0755, true);
                 }
 
-                // Save with maximum compression (level 9)
                 imagepng($img, $fullPath, 9);
                 imagedestroy($img);
 
                 $path = $filename;
             } else {
-                // Fallback direct storage if GD initialization fails
                 $path = $file->store('signatures', 'public');
             }
         }
@@ -124,105 +123,13 @@ class ExamReportController extends Controller
             'sesi' => 'nullable',
         ]);
 
-        $allJadwals = \App\Models\JadwalUjian::with(['mataPelajaran.kelas'])
-            ->where('ujian_id', $request->ujian_id)
-            ->where(function ($q) use ($request) {
-                $q->where('pengawas_id', $request->pengawas_id)
-                    ->orWhere('pengawas_pengganti_id', $request->pengawas_id);
-            })
-            ->get();
+        $result = $this->assignmentService->getAssignment(
+            (int) $request->ujian_id,
+            (int) $request->pengawas_id,
+            $request->filled('sesi') ? $request->sesi : null
+        );
 
-        if ($allJadwals->isEmpty()) {
-            return response()->json(['message' => 'Jadwal tidak ditemukan'], 404);
-        }
-
-        // Dapatkan semua sesi yang tersedia untuk pengawas ini di ujian ini
-        $available_sesi = $allJadwals->pluck('sesi')->unique()->filter()->values()->toArray();
-
-        // Filter jadwal berdasarkan sesi jika dipilih
-        $jadwals = $allJadwals;
-        if ($request->filled('sesi')) {
-            $jadwals = $allJadwals->where('sesi', $request->sesi)->values();
-        }
-
-        if ($jadwals->isEmpty()) {
-            return response()->json(['message' => 'Jadwal untuk sesi tersebut tidak ditemukan'], 404);
-        }
-
-        // Agregasi Data Mata Pelajaran (Semua mapel dalam ujian ini)
-        $semuaJadwalUjian = \App\Models\JadwalUjian::with('mataPelajaran')
-            ->where('ujian_id', $request->ujian_id)
-            ->get();
-
-        $mata_pelajarans = $semuaJadwalUjian->map(function ($jadwal) {
-            $namaMapel = '-';
-            if ($jadwal->mataPelajaran) {
-                $namaMapel = $jadwal->mataPelajaran->nama_mapel;
-            } elseif (!empty($jadwal->nama_mapel)) {
-                $namaMapel = $jadwal->nama_mapel;
-            }
-
-            $sesiStr = $jadwal->sesi ? " (Sesi {$jadwal->sesi})" : "";
-            return [
-                'id' => $jadwal->id,
-                'mapel_id' => $jadwal->mapel_id,
-                'nama' => $namaMapel . $sesiStr
-            ];
-        })->unique('nama')->values()->toArray();
-
-        $kelas_names = $jadwals->pluck('mataPelajaran.kelas.nama_kelas')->unique()->implode(', ');
-        $total_siswa = $jadwals->sum('total_siswa');
-
-        $first = $jadwals->first();
-
-        // Ambil peserta: cocokkan berdasarkan ujian_id + ruang_id + sesi
-        $jadwalIds = $jadwals->pluck('id')->toArray();
-        $ruangIds = $jadwals->pluck('ruang_id')->unique()->filter()->values()->toArray();
-        $sesiList = $jadwals->pluck('sesi')->unique()->filter()->values()->toArray();
-
-        $ruangan_names = '-';
-        if (!empty($ruangIds)) {
-            $ruangan_names = \App\Models\Ruang::whereIn('id', $ruangIds)->pluck('nama_ruang')->implode(', ');
-        }
-
-        // Cari peserta berdasarkan ujian_id + ruang_id + sesi (tanpa perlu pivot)
-        $peserta = collect();
-        if (!empty($ruangIds)) {
-            $query = \App\Models\PesertaUjian::where('ujian_id', $request->ujian_id)
-                ->whereIn('ruang_id', $ruangIds);
-
-            if (!empty($sesiList)) {
-                $query->where(function ($q) use ($sesiList) {
-                    $q->whereIn('sesi', $sesiList)
-                        ->orWhereNull('sesi');
-                });
-            }
-
-            $peserta = $query->get();
-        }
-
-        // Fallback ke pivot table jika direct match kosong
-        if ($peserta->isEmpty()) {
-            $peserta = \App\Models\PesertaUjian::whereHas('jadwalUjians', function ($q) use ($jadwalIds) {
-                $q->whereIn('jadwal_ujians.id', $jadwalIds);
-            })->get();
-        }
-
-        return response()->json([
-            'jadwal' => [
-                'mata_pelajarans' => $mata_pelajarans, // array for dropdown
-                'mata_pelajaran' => !empty($mata_pelajarans) ? $mata_pelajarans[0]['nama'] : '-', // fallback display
-                'mapel_id' => !empty($mata_pelajarans) ? $mata_pelajarans[0]['id'] : $first->id,   // initial form storage maps to jadwal id now
-                'kelas' => $kelas_names ?: '-',
-                'ruangan' => $ruangan_names,
-                'kelas_id' => $first->mataPelajaran?->kelas_id,
-                'total_siswa' => $total_siswa,
-                'mulai_ujian' => $first->mulai_ujian,
-                'ujian_berakhir' => $first->ujian_berakhir,
-            ],
-            'peserta' => $peserta,
-            'available_sesi' => $available_sesi // array for sesi dropdown
-        ]);
+        return response()->json($result['data'], $result['status'] ?? 200);
     }
 
     public function getPresensiToday()
@@ -246,28 +153,5 @@ class ExamReportController extends Controller
         $result = $this->presensiService->handleLoginNiy($niy);
 
         return response()->json($result['data'], $result['status'] ?? 200);
-    }
-
-    public function healthCheck()
-    {
-        try {
-            \DB::connection()->getPdo();
-            return response()->json([
-                'status' => 'ok',
-                'database' => 'connected',
-                'details' => [
-                    'engine' => \DB::connection()->getDriverName(),
-                    'name' => \DB::connection()->getDriverName() === 'sqlite'
-                        ? basename(\DB::connection()->getDatabaseName())
-                        : \DB::connection()->getDatabaseName(),
-                ]
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'database' => 'disconnected',
-                'message' => $e->getMessage()
-            ], 500);
-        }
     }
 }
