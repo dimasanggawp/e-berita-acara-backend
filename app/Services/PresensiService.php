@@ -22,6 +22,7 @@ class PresensiService
      */
     public function handleScanPeserta(string $kodePeserta, ?int $ujianId, ?int $pengawasId = null): array
     {
+        $kodePeserta = trim($kodePeserta);
         $today = now()->startOfDay();
         $maxRetries = 3;
         $attempt = 0;
@@ -60,11 +61,11 @@ class PresensiService
                             // Check if student is attached to any of these schedules
                             $validRoom = false;
 
-                            // 1. Direct match by ruang & sesi
+                            // 1. Direct match by ruang_id & sesi
                             foreach ($jadwals as $jadwal) {
                                 if (
                                     $peserta->ujian_id == $ujianId &&
-                                    $peserta->ruang === $jadwal->ruang &&
+                                    $peserta->ruang_id == $jadwal->ruang_id &&
                                     (is_null($peserta->sesi) || is_null($jadwal->sesi) || $peserta->sesi === $jadwal->sesi)
                                 ) {
                                     $validRoom = true;
@@ -82,13 +83,14 @@ class PresensiService
 
                             if (!$validRoom) {
                                 // Provide a helpful error by showing the rooms they are actually assigned to
-                                $expectedStr = "";
-                                if ($peserta->ruang) {
-                                    $expectedStr = "Ruang {$peserta->ruang}" . ($peserta->sesi ? " Sesi {$peserta->sesi}" : "");
+                                $ruangName = $peserta->ruang ? $peserta->ruang->nama_ruang : null;
+                                if ($ruangName) {
+                                    $expectedStr = "Ruang {$ruangName}" . ($peserta->sesi ? " Sesi {$peserta->sesi}" : "");
                                 } else {
                                     $actualJadwals = $peserta->jadwalUjians()->where('ujian_id', $ujianId)->get();
                                     $expectedStr = $actualJadwals->map(function ($j) {
-                                        return "Ruang {$j->ruang}" . ($j->sesi ? " Sesi {$j->sesi}" : "");
+                                        $rName = $j->ruang ? $j->ruang->nama_ruang : $j->ruang_id;
+                                        return "Ruang {$rName}" . ($j->sesi ? " Sesi {$j->sesi}" : "");
                                     })->implode(' / ') ?: "ruangan lain";
                                 }
 

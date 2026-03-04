@@ -17,9 +17,20 @@ class ExamReportController extends Controller
 
     public function getInitData()
     {
+        $ujiansQuery = \App\Models\Ujian::where('is_active', true);
+
+        // If authenticated via sanctum (proctor), filter by their assignments
+        if (auth('sanctum')->check()) {
+            $pengawasId = auth('sanctum')->id();
+            $ujiansQuery->whereHas('jadwalUjians', function ($q) use ($pengawasId) {
+                $q->where('pengawas_id', $pengawasId)
+                    ->orWhere('pengawas_pengganti_id', $pengawasId);
+            });
+        }
+
         return response()->json([
             'pengawas' => \App\Models\Pengawas::all(),
-            'ujians' => \App\Models\Ujian::where('is_active', true)->get(),
+            'ujians' => $ujiansQuery->get(),
             'mata_pelajarans' => \App\Models\MataPelajaran::all(),
         ]);
     }
@@ -164,17 +175,21 @@ class ExamReportController extends Controller
 
         $first = $jadwals->first();
 
-        // Ambil peserta: cocokkan berdasarkan ujian_id + ruang + sesi
+        // Ambil peserta: cocokkan berdasarkan ujian_id + ruang_id + sesi
         $jadwalIds = $jadwals->pluck('id')->toArray();
-        $ruangList = $jadwals->pluck('ruang')->unique()->filter()->values()->toArray();
+        $ruangIds = $jadwals->pluck('ruang_id')->unique()->filter()->values()->toArray();
         $sesiList = $jadwals->pluck('sesi')->unique()->filter()->values()->toArray();
-        $ruangan_names = !empty($ruangList) ? implode(', ', $ruangList) : '-';
 
-        // Cari peserta berdasarkan ujian_id + ruang + sesi (tanpa perlu pivot)
+        $ruangan_names = '-';
+        if (!empty($ruangIds)) {
+            $ruangan_names = \App\Models\Ruang::whereIn('id', $ruangIds)->pluck('nama_ruang')->implode(', ');
+        }
+
+        // Cari peserta berdasarkan ujian_id + ruang_id + sesi (tanpa perlu pivot)
         $peserta = collect();
-        if (!empty($ruangList)) {
+        if (!empty($ruangIds)) {
             $query = \App\Models\PesertaUjian::where('ujian_id', $request->ujian_id)
-                ->whereIn('ruang', $ruangList);
+                ->whereIn('ruang_id', $ruangIds);
 
             if (!empty($sesiList)) {
                 $query->where(function ($q) use ($sesiList) {

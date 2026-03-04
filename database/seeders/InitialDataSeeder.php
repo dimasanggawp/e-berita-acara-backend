@@ -149,6 +149,7 @@ class InitialDataSeeder extends Seeder
                 'nisn' => "00" . (10000000 + $i),
                 'nomor_peserta' => "25-001-" . str_pad($i, 3, '0', STR_PAD_LEFT),
                 'kelas' => 'XII-RPL 1',
+                'ujian_id' => $u1->id,
                 'ruang_id' => $ruangModels['Lab RPL 1']->id,
             ]);
             $peserta->jadwalUjians()->attach($j1->id);
@@ -160,6 +161,7 @@ class InitialDataSeeder extends Seeder
                 'nisn' => "00" . (20000000 + $i),
                 'nomor_peserta' => "25-002-" . str_pad($i, 3, '0', STR_PAD_LEFT),
                 'kelas' => 'XII-TKJ 2',
+                'ujian_id' => $u1->id,
                 'ruang_id' => $ruangModels['Lab TKJ 2']->id,
             ]);
             $peserta->jadwalUjians()->attach($j2->id);
@@ -171,6 +173,7 @@ class InitialDataSeeder extends Seeder
                 'nisn' => "00" . (30000000 + $i),
                 'nomor_peserta' => "25-003-RPL-" . str_pad($i, 2, '0', STR_PAD_LEFT),
                 'kelas' => 'XII-RPL 2',
+                'ujian_id' => $u1->id,
                 'ruang_id' => $ruangModels['Lab RPL 2']->id,
             ]);
             $peserta->jadwalUjians()->attach($j3->id);
@@ -182,6 +185,7 @@ class InitialDataSeeder extends Seeder
                 'nisn' => "00" . (40000000 + $i),
                 'nomor_peserta' => "25-003-TKJ-" . str_pad($i, 2, '0', STR_PAD_LEFT),
                 'kelas' => 'XII-TKJ 1',
+                'ujian_id' => $u1->id,
                 'ruang_id' => $ruangModels['Lab TKJ 1']->id,
             ]);
             $peserta->jadwalUjians()->attach($j4->id);
