@@ -55,6 +55,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Laporan (Berita Acara)
     Route::get('/laporan', [\App\Http\Controllers\LaporanController::class, 'index']);
     Route::get('/laporan/{id}', [\App\Http\Controllers\LaporanController::class, 'show']);
+    Route::delete('/laporan/{id}', [\App\Http\Controllers\LaporanController::class, 'destroy']);
 });
 
 Route::get('/dashboard/attendance-stats', [DashboardController::class, 'attendanceStats']);

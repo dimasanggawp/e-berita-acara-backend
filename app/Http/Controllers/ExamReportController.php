@@ -80,20 +80,36 @@ class ExamReportController extends Controller
             }
         }
 
-        $report = \App\Models\LaporanUjian::create([
-            'ujian_id' => $validated['ujian_id'],
-            'pengawas_id' => $validated['pengawas_id'],
-            'mapel_id' => $validated['mapel_id'] ?? null,
+        $reportData = [
             'mulai_ujian' => $validated['mulai_ujian'],
             'ujian_berakhir' => $validated['ujian_berakhir'],
-            'kelas_id' => $validated['kelas_id'] ?? null,
             'total_expected' => $validated['total_expected'],
             'total_present' => $validated['total_present'],
             'total_absent' => $validated['total_absent'],
             'absent_details' => $validated['absent_details'] ?? null,
             'notes' => $validated['notes'] ?? null,
-            'signature_path' => $path,
-        ]);
+        ];
+
+        if ($path) {
+            $reportData['signature_path'] = $path;
+        }
+
+        $matchThese = [
+            'ujian_id' => $validated['ujian_id'],
+            'pengawas_id' => $validated['pengawas_id'],
+            'mapel_id' => $validated['mapel_id'] ?? null,
+            'kelas_id' => $validated['kelas_id'] ?? null,
+        ];
+
+        // Check if exists to delete old signature if updating
+        $existingReport = \App\Models\LaporanUjian::where($matchThese)->first();
+        if ($existingReport && $path && $existingReport->signature_path) {
+            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($existingReport->signature_path)) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($existingReport->signature_path);
+            }
+        }
+
+        $report = \App\Models\LaporanUjian::updateOrCreate($matchThese, $reportData);
 
         return response()->json(['message' => 'Laporan berhasil disimpan', 'data' => $report], 201);
     }

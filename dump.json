@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="refresh" content="0;url='http://localhost/api/login'" />
+
+        <title>Redirecting to http://localhost/api/login</title>
+    </head>
+    <body>
+        Redirecting to <a href="http://localhost/api/login">http://localhost/api/login</a>.
+    </body>
+</html>

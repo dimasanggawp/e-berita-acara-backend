@@ -20,8 +20,7 @@ class LaporanController extends Controller
         }
 
         $reports = $query->get()->map(function ($report) {
-            // Get the jadwal for this pengawas + ujian to extract ruang & sesi
-            $jadwal = \App\Models\JadwalUjian::with('ruang')
+            $jadwal = \App\Models\JadwalUjian::with(['ruang', 'mataPelajaran.kelas'])
                 ->where('ujian_id', $report->ujian_id)
                 ->where(function ($q) use ($report) {
                     $q->where('pengawas_id', $report->pengawas_id)
@@ -29,12 +28,38 @@ class LaporanController extends Controller
                 })
                 ->first();
 
+            // Calculate kelas_name
+            $kelasName = '-';
+            if ($report->kelas) {
+                $kelasName = $report->kelas->nama_kelas;
+            } elseif ($jadwal && $jadwal->mataPelajaran && $jadwal->mataPelajaran->kelas) {
+                $kelasName = $jadwal->mataPelajaran->kelas->nama_kelas;
+            } else {
+                // If it's a mixed class, check the peserta assigned
+                $peserta = \App\Models\PesertaUjian::with('kelas')->where('ujian_id', $report->ujian_id)
+                    ->where(function ($q) use ($jadwal) {
+                        if ($jadwal?->ruang_id)
+                            $q->where('ruang_id', $jadwal->ruang_id);
+                        if ($jadwal?->sesi)
+                            $q->where('sesi', $jadwal->sesi);
+                    })->get();
+                if ($peserta->isNotEmpty()) {
+                    $kelasNames = $peserta->pluck('kelas')->unique()->filter();
+                    if ($kelasNames->count() > 1) {
+                        $kelasName = 'Gabungan (' . $kelasNames->count() . ' Kelas)';
+                    } elseif ($kelasNames->count() === 1) {
+                        $kelasName = $kelasNames->first();
+                    }
+                }
+            }
+
             return [
                 'id' => $report->id,
                 'ujian' => $report->ujian,
                 'pengawas' => $report->pengawas,
                 'kelas' => $report->kelas,
-                'nama_mapel' => $jadwal->nama_mapel ?? '-',
+                'kelas_name' => $kelasName,
+                'nama_mapel' => $jadwal->nama_mapel ?? ($jadwal->mataPelajaran->nama_mapel ?? '-'),
                 'ruang' => $jadwal->ruang->nama_ruang ?? '-',
                 'kampus' => $jadwal->ruang->kampus ?? '-',
                 'sesi' => $jadwal->sesi ?? '-',
@@ -45,6 +70,7 @@ class LaporanController extends Controller
                 'total_absent' => $report->total_absent,
                 'absent_details' => $report->absent_details,
                 'notes' => $report->notes,
+                'signature_path' => $report->signature_path,
                 'signature_url' => $report->signature_path
                     ? asset('storage/' . $report->signature_path)
                     : null,
@@ -62,7 +88,7 @@ class LaporanController extends Controller
     {
         $report = LaporanUjian::with(['ujian', 'pengawas', 'kelas'])->findOrFail($id);
 
-        $jadwal = \App\Models\JadwalUjian::with('ruang')
+        $jadwal = \App\Models\JadwalUjian::with(['ruang', 'mataPelajaran.kelas'])
             ->where('ujian_id', $report->ujian_id)
             ->where(function ($q) use ($report) {
                 $q->where('pengawas_id', $report->pengawas_id)
@@ -70,12 +96,38 @@ class LaporanController extends Controller
             })
             ->first();
 
+        // Calculate kelas_name
+        $kelasName = '-';
+        if ($report->kelas) {
+            $kelasName = $report->kelas->nama_kelas;
+        } elseif ($jadwal && $jadwal->mataPelajaran && $jadwal->mataPelajaran->kelas) {
+            $kelasName = $jadwal->mataPelajaran->kelas->nama_kelas;
+        } else {
+            // Mixed class fallback
+            $peserta = \App\Models\PesertaUjian::with('kelas')->where('ujian_id', $report->ujian_id)
+                ->where(function ($q) use ($jadwal) {
+                    if ($jadwal?->ruang_id)
+                        $q->where('ruang_id', $jadwal->ruang_id);
+                    if ($jadwal?->sesi)
+                        $q->where('sesi', $jadwal->sesi);
+                })->get();
+            if ($peserta->isNotEmpty()) {
+                $kelasNames = $peserta->pluck('kelas')->unique()->filter();
+                if ($kelasNames->count() > 1) {
+                    $kelasName = 'Gabungan (' . $kelasNames->count() . ' Kelas)';
+                } elseif ($kelasNames->count() === 1) {
+                    $kelasName = $kelasNames->first();
+                }
+            }
+        }
+
         return response()->json([
             'id' => $report->id,
             'ujian' => $report->ujian,
             'pengawas' => $report->pengawas,
             'kelas' => $report->kelas,
-            'nama_mapel' => $jadwal->nama_mapel ?? '-',
+            'kelas_name' => $kelasName,
+            'nama_mapel' => $jadwal->nama_mapel ?? ($jadwal->mataPelajaran->nama_mapel ?? '-'),
             'ruang' => $jadwal->ruang->nama_ruang ?? '-',
             'kampus' => $jadwal->ruang->kampus ?? '-',
             'sesi' => $jadwal->sesi ?? '-',
@@ -86,10 +138,28 @@ class LaporanController extends Controller
             'total_absent' => $report->total_absent,
             'absent_details' => $report->absent_details,
             'notes' => $report->notes,
+            'signature_path' => $report->signature_path,
             'signature_url' => $report->signature_path
                 ? asset('storage/' . $report->signature_path)
                 : null,
             'created_at' => $report->created_at,
         ]);
+    }
+
+    /**
+     * Delete a report.
+     */
+    public function destroy(string $id)
+    {
+        $report = LaporanUjian::findOrFail($id);
+
+        // Optionally delete the signature file if it exists
+        if ($report->signature_path && \Illuminate\Support\Facades\Storage::disk('public')->exists($report->signature_path)) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($report->signature_path);
+        }
+
+        $report->delete();
+
+        return response()->json(['message' => 'Laporan berhasil dihapus']);
     }
 }

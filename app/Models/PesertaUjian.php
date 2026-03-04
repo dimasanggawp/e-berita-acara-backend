@@ -21,6 +21,11 @@ class PesertaUjian extends Model
         return $this->belongsTo(Ruang::class, 'ruang_id');
     }
 
+    public function kelas()
+    {
+        return $this->belongsTo(Kelas::class, 'kelas_id');
+    }
+
     public function jadwalUjians()
     {
         return $this->belongsToMany(JadwalUjian::class, 'jadwal_peserta', 'peserta_ujian_id', 'jadwal_ujian_id');
