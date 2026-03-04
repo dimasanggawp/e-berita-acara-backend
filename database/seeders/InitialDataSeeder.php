@@ -19,19 +19,6 @@ class InitialDataSeeder extends Seeder
             'password' => \Illuminate\Support\Facades\Hash::make('admin'),
         ]);
 
-        // 1. Pengawas
-        $pengawas = [
-            ['name' => 'Budi Santoso, S.Pd.', 'niy' => '198001012000011001'],
-            ['name' => 'Siti Aminah, M.Pd.', 'niy' => '198505052010012005'],
-            ['name' => 'Agus Setiawan, S.T.', 'niy' => '199010102019031008'],
-            ['name' => 'Dewi Lestari, S.Kom.', 'niy' => '199203152022032010'],
-            ['name' => 'Eko Prasetyo, M.T.', 'niy' => '197811202005011003'],
-        ];
-        $proctorModels = [];
-        foreach ($pengawas as $p) {
-            $proctorModels[] = \App\Models\Pengawas::create($p);
-        }
-
         // 3. Ujians (Events)
         $tahunAktif = \App\Models\TahunAjaran::where('tahun', '2024/2025')->first();
         if (!$tahunAktif) {
@@ -51,11 +38,35 @@ class InitialDataSeeder extends Seeder
             'is_active' => true,
         ]);
 
+        // 1. Pengawas
+        $pengawas = [
+            ['name' => 'Budi Santoso, S.Pd.', 'niy' => '198001012000011001', 'ujian_id' => $u1->id],
+            ['name' => 'Siti Aminah, M.Pd.', 'niy' => '198505052010012005', 'ujian_id' => $u1->id],
+            ['name' => 'Agus Setiawan, S.T.', 'niy' => '199010102019031008', 'ujian_id' => $u1->id],
+            ['name' => 'Dewi Lestari, S.Kom.', 'niy' => '199203152022032010', 'ujian_id' => $u1->id],
+            ['name' => 'Eko Prasetyo, M.T.', 'niy' => '197811202005011003', 'ujian_id' => $u1->id],
+        ];
+        $proctorModels = [];
+        foreach ($pengawas as $p) {
+            $proctorModels[] = \App\Models\Pengawas::create($p);
+        }
+
         // 3.0 Kelas
         $kelases = ['XII-RPL 1', 'XII-RPL 2', 'XII-TKJ 1', 'XII-TKJ 2', 'XII-AKL 1', 'XII-AKL 2'];
         $kelasModels = [];
         foreach ($kelases as $k) {
             $kelasModels[$k] = \App\Models\Kelas::create(['nama_kelas' => $k]);
+        }
+
+        // 3.0.1 Ruang
+        $ruangs = ['Lab RPL 1', 'Lab RPL 2', 'Lab TKJ 1', 'Lab TKJ 2', 'Ruang Teori 1', 'Ruang Teori 2'];
+        $ruangModels = [];
+        foreach ($ruangs as $r) {
+            $ruangModels[$r] = \App\Models\Ruang::create([
+                'nama_ruang' => $r,
+                'ujian_id' => $u1->id,
+                'kampus' => 'Kampus 1'
+            ]);
         }
 
         // 3.1 Mata Pelajaran
@@ -82,6 +93,7 @@ class InitialDataSeeder extends Seeder
             'ujian_id' => $u1->id,
             'pengawas_id' => $proctorModels[0]->id,
             'mapel_id' => $mapelModels['Matematika']->id,
+            'ruang_id' => $ruangModels['Lab RPL 1']->id,
             'sesi' => 'Sesi 1',
             'mulai_ujian' => now()->setTime(7, 30, 0),
             'ujian_berakhir' => now()->setTime(9, 30, 0),
@@ -92,6 +104,7 @@ class InitialDataSeeder extends Seeder
             'ujian_id' => $u1->id,
             'pengawas_id' => $proctorModels[1]->id,
             'mapel_id' => $mapelModels['Bahasa Indonesia']->id,
+            'ruang_id' => $ruangModels['Lab TKJ 2']->id,
             'sesi' => 'Sesi 1',
             'mulai_ujian' => now()->setTime(7, 30, 0),
             'ujian_berakhir' => now()->setTime(9, 30, 0),
@@ -102,6 +115,7 @@ class InitialDataSeeder extends Seeder
             'ujian_id' => $u1->id,
             'pengawas_id' => $proctorModels[2]->id,
             'mapel_id' => $mapelModels['Produktif RPL']->id,
+            'ruang_id' => $ruangModels['Lab RPL 2']->id,
             'sesi' => 'Sesi 1',
             'mulai_ujian' => now()->setTime(7, 30, 0),
             'ujian_berakhir' => now()->setTime(9, 30, 0),
@@ -112,6 +126,7 @@ class InitialDataSeeder extends Seeder
             'ujian_id' => $u1->id,
             'pengawas_id' => $proctorModels[2]->id,
             'mapel_id' => $mapelModels['Produktif TKJ']->id,
+            'ruang_id' => $ruangModels['Lab TKJ 1']->id,
             'mulai_ujian' => now()->setTime(7, 30, 0),
             'ujian_berakhir' => now()->setTime(9, 30, 0),
             'total_siswa' => 15,
@@ -121,6 +136,7 @@ class InitialDataSeeder extends Seeder
             'ujian_id' => $u1->id,
             'pengawas_id' => $proctorModels[3]->id,
             'mapel_id' => $mapelModels['Bahasa Inggris']->id,
+            'ruang_id' => $ruangModels['Ruang Teori 1']->id,
             'mulai_ujian' => now()->setTime(7, 30, 0),
             'ujian_berakhir' => now()->setTime(9, 30, 0),
             'total_siswa' => 30,
@@ -133,7 +149,7 @@ class InitialDataSeeder extends Seeder
                 'nisn' => "00" . (10000000 + $i),
                 'nomor_peserta' => "25-001-" . str_pad($i, 3, '0', STR_PAD_LEFT),
                 'kelas' => 'XII-RPL 1',
-                'ruang' => 'Lab RPL 1',
+                'ruang_id' => $ruangModels['Lab RPL 1']->id,
             ]);
             $peserta->jadwalUjians()->attach($j1->id);
         }
@@ -144,7 +160,7 @@ class InitialDataSeeder extends Seeder
                 'nisn' => "00" . (20000000 + $i),
                 'nomor_peserta' => "25-002-" . str_pad($i, 3, '0', STR_PAD_LEFT),
                 'kelas' => 'XII-TKJ 2',
-                'ruang' => 'Lab TKJ 2',
+                'ruang_id' => $ruangModels['Lab TKJ 2']->id,
             ]);
             $peserta->jadwalUjians()->attach($j2->id);
         }
@@ -155,7 +171,7 @@ class InitialDataSeeder extends Seeder
                 'nisn' => "00" . (30000000 + $i),
                 'nomor_peserta' => "25-003-RPL-" . str_pad($i, 2, '0', STR_PAD_LEFT),
                 'kelas' => 'XII-RPL 2',
-                'ruang' => 'Lab RPL 2',
+                'ruang_id' => $ruangModels['Lab RPL 2']->id,
             ]);
             $peserta->jadwalUjians()->attach($j3->id);
         }
@@ -166,7 +182,7 @@ class InitialDataSeeder extends Seeder
                 'nisn' => "00" . (40000000 + $i),
                 'nomor_peserta' => "25-003-TKJ-" . str_pad($i, 2, '0', STR_PAD_LEFT),
                 'kelas' => 'XII-TKJ 1',
-                'ruang' => 'Lab TKJ 1',
+                'ruang_id' => $ruangModels['Lab TKJ 1']->id,
             ]);
             $peserta->jadwalUjians()->attach($j4->id);
         }

@@ -92,4 +92,161 @@ class DashboardController extends Controller
             'available_dates' => $availableDates,
         ]);
     }
+
+    public function attendanceByCampus(Request $request)
+    {
+        $ujianId = $request->query('ujian_id');
+        $date = $request->query('date');
+
+        if (!$ujianId) {
+            return response()->json([]);
+        }
+
+        $campuses = ['Kampus 1', 'Kampus 2'];
+        $results = [];
+
+        foreach ($campuses as $campus) {
+            // Get participants in this campus
+            $participants = PesertaUjian::where('ujian_id', $ujianId)
+                ->whereHas('ruang', function ($q) use ($campus) {
+                    $q->where('kampus', $campus);
+                });
+
+            $total = $participants->count();
+
+            // Get attendance for these participants
+            $attendanceQuery = PresensiPeserta::where('ujian_id', $ujianId)
+                ->whereIn('kode_peserta', function ($q) use ($ujianId, $campus) {
+                    $q->select('nomor_peserta')
+                        ->from('peserta_ujians')
+                        ->where('ujian_id', $ujianId)
+                        ->whereIn('ruang_id', function ($sq) use ($campus) {
+                            $sq->select('id')->from('ruangs')->where('kampus', $campus);
+                        });
+                })
+                ->whereNotNull('waktu_datang');
+
+            if ($date) {
+                $attendanceQuery->whereDate('waktu_datang', $date);
+            }
+
+            $attended = $attendanceQuery->distinct('kode_peserta')->count('kode_peserta');
+
+            $results[] = [
+                'kampus' => $campus,
+                'total' => $total,
+                'attended' => $attended,
+                'not_attended' => max(0, $total - $attended),
+                'percentage' => $total > 0 ? round(($attended / $total) * 100, 1) : 0,
+            ];
+        }
+
+        return response()->json($results);
+    }
+
+    public function attendanceByClass(Request $request)
+    {
+        $ujianId = $request->query('ujian_id');
+        $date = $request->query('date');
+        $campus = $request->query('kampus');
+
+        if (!$ujianId || !$campus) {
+            return response()->json([]);
+        }
+
+        $classes = PesertaUjian::where('ujian_id', $ujianId)
+            ->whereHas('ruang', function ($q) use ($campus) {
+                $q->where('kampus', $campus);
+            })
+            ->select('kelas')
+            ->distinct()
+            ->pluck('kelas');
+
+        $results = [];
+
+        foreach ($classes as $kelas) {
+            $participants = PesertaUjian::where('ujian_id', $ujianId)
+                ->where('kelas', $kelas)
+                ->whereHas('ruang', function ($q) use ($campus) {
+                    $q->where('kampus', $campus);
+                });
+
+            $total = $participants->count();
+
+            $attendanceQuery = PresensiPeserta::where('ujian_id', $ujianId)
+                ->whereIn('kode_peserta', function ($q) use ($ujianId, $kelas, $campus) {
+                    $q->select('nomor_peserta')
+                        ->from('peserta_ujians')
+                        ->where('ujian_id', $ujianId)
+                        ->where('kelas', $kelas)
+                        ->whereIn('ruang_id', function ($sq) use ($campus) {
+                            $sq->select('id')->from('ruangs')->where('kampus', $campus);
+                        });
+                })
+                ->whereNotNull('waktu_datang');
+
+            if ($date) {
+                $attendanceQuery->whereDate('waktu_datang', $date);
+            }
+
+            $attended = $attendanceQuery->distinct('kode_peserta')->count('kode_peserta');
+
+            $results[] = [
+                'kelas' => $kelas,
+                'total' => $total,
+                'attended' => $attended,
+                'not_attended' => max(0, $total - $attended),
+                'percentage' => $total > 0 ? round(($attended / $total) * 100, 1) : 0,
+            ];
+        }
+
+        // Sort by percentage/name if needed
+        usort($results, fn($a, $b) => $b['percentage'] <=> $a['percentage'] ?: $a['kelas'] <=> $b['kelas']);
+
+        return response()->json($results);
+    }
+
+    public function attendanceStudents(Request $request)
+    {
+        $ujianId = $request->query('ujian_id');
+        $date = $request->query('date');
+        $kelas = $request->query('kelas');
+        $campus = $request->query('kampus');
+
+        if (!$ujianId || !$kelas || !$campus) {
+            return response()->json([]);
+        }
+
+        $students = PesertaUjian::where('ujian_id', $ujianId)
+            ->where('kelas', $kelas)
+            ->whereHas('ruang', function ($q) use ($campus) {
+                $q->where('kampus', $campus);
+            })
+            ->with(['ruang'])
+            ->get();
+
+        $results = $students->map(function ($student) use ($ujianId, $date) {
+            $attendanceQuery = PresensiPeserta::where('ujian_id', $ujianId)
+                ->where('kode_peserta', $student->nomor_peserta)
+                ->whereNotNull('waktu_datang');
+
+            if ($date) {
+                $attendanceQuery->whereDate('waktu_datang', $date);
+            }
+
+            $presensi = $attendanceQuery->first();
+
+            return [
+                'id' => $student->id,
+                'nama' => $student->nama,
+                'nomor_peserta' => $student->nomor_peserta,
+                'kelas' => $student->kelas,
+                'nama_ruang' => $student->ruang->nama_ruang ?? '-',
+                'waktu_datang' => $presensi ? $presensi->waktu_datang : null,
+                'status' => $presensi ? 'Hadir' : 'Tidak Hadir',
+            ];
+        });
+
+        return response()->json($results);
+    }
 }

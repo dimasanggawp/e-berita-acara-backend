@@ -15,9 +15,15 @@ class PengawasController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $pengawas = Pengawas::with('ujian')->orderBy('name', 'asc')->get();
+        $query = Pengawas::with('ujian');
+
+        if ($request->has('ujian_id') && $request->ujian_id !== null && $request->ujian_id !== '') {
+            $query->where('ujian_id', $request->ujian_id);
+        }
+
+        $pengawas = $query->orderBy('name', 'asc')->get();
         return response()->json($pengawas);
     }
 

@@ -10,10 +10,14 @@ return new class extends Migration {
      */
     public function up(): void
     {
+        Schema::dropIfExists('ruangs');
         Schema::create('ruangs', function (Blueprint $table) {
             $table->id();
             $table->string('nama_ruang');
+            $table->enum('kampus', ['Kampus 1', 'Kampus 2'])->default('Kampus 1');
             $table->timestamps();
+
+            $table->unique(['nama_ruang', 'kampus']);
         });
     }
 

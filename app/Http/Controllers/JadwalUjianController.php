@@ -16,7 +16,7 @@ class JadwalUjianController extends Controller
     public function index()
     {
         return response()->json(
-            JadwalUjian::with(['ujian', 'pengawas', 'pengawasPengganti'])
+            JadwalUjian::with(['ujian', 'pengawas', 'pengawasPengganti', 'ruang'])
                 ->whereHas('ujian', function ($q) {
                     $q->where('is_active', true);
                 })
@@ -31,7 +31,7 @@ class JadwalUjianController extends Controller
             'ujian_id' => 'required|exists:ujians,id',
             'pengawas_id' => 'required|exists:pengawas,id',
             'pengawas_pengganti_id' => 'nullable|exists:pengawas,id',
-            'ruang' => 'required|string|max:255',
+            'ruang_id' => 'required|exists:ruangs,id',
             'nama_mapel' => 'required|string|max:255',
             'sesi' => 'nullable|string|max:255',
             'mulai_ujian' => 'required|date',
@@ -39,7 +39,7 @@ class JadwalUjianController extends Controller
         ]);
 
         // Hitung total siswa secara otomatis berdasarkan Ruang, Ujian, dan Sesi
-        $query = PesertaUjian::where('ruang', $validated['ruang'])
+        $query = PesertaUjian::where('ruang_id', $validated['ruang_id'])
             ->where('ujian_id', $validated['ujian_id']);
 
         if (!empty($validated['sesi'])) {
@@ -74,7 +74,7 @@ class JadwalUjianController extends Controller
             'ujian_id' => 'required|exists:ujians,id',
             'pengawas_id' => 'required|exists:pengawas,id',
             'pengawas_pengganti_id' => 'nullable|exists:pengawas,id',
-            'ruang' => 'required|string|max:255',
+            'ruang_id' => 'required|exists:ruangs,id',
             'nama_mapel' => 'required|string|max:255',
             'sesi' => 'nullable|string|max:255',
             'mulai_ujian' => 'required|date',
@@ -86,7 +86,7 @@ class JadwalUjianController extends Controller
                 $jadwal = JadwalUjian::lockForUpdate()->findOrFail($id);
 
                 // Hitung ulang total siswa
-                $query = PesertaUjian::where('ruang', $validated['ruang'])
+                $query = PesertaUjian::where('ruang_id', $validated['ruang_id'])
                     ->where('ujian_id', $validated['ujian_id']);
 
                 if (!empty($validated['sesi'])) {
@@ -207,7 +207,7 @@ class JadwalUjianController extends Controller
                 $jamMulaiSelesai = trim($data[2]);
                 $namaMapel = trim($data[3]);
                 $niyPengawas = trim($data[4]);
-                $ruang = trim($data[5]);
+                $ruangNama = trim($data[5]);
                 $niyPengganti = isset($data[6]) ? trim($data[6]) : null;
 
                 $times = explode('-', $jamMulaiSelesai);
@@ -234,8 +234,16 @@ class JadwalUjianController extends Controller
                     }
                 }
 
+                $ruang = \App\Models\Ruang::where('nama_ruang', $ruangNama)
+                    ->where('ujian_id', $request->ujian_id)
+                    ->first();
+                if (!$ruang) {
+                    $errors[] = "Baris " . ($index + 2) . ": Ruang '$ruangNama' tidak ditemukan di Master Data Ruang untuk Ujian yang dipilih.";
+                    continue;
+                }
+
                 // Hitung total siswa secara otomatis
-                $query = PesertaUjian::where('ruang', $ruang)
+                $query = PesertaUjian::where('ruang_id', $ruang->id)
                     ->where('ujian_id', $request->ujian_id);
 
                 if (!empty($sesi)) {
@@ -248,7 +256,7 @@ class JadwalUjianController extends Controller
                     'ujian_id' => $request->ujian_id,
                     'pengawas_id' => $pengawas->id,
                     'pengawas_pengganti_id' => $pengawasPengganti ? $pengawasPengganti->id : null,
-                    'ruang' => $ruang,
+                    'ruang_id' => $ruang->id,
                     'nama_mapel' => $namaMapel,
                     'sesi' => $sesi,
                     'mulai_ujian' => $mulai,

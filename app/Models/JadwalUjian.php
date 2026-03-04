@@ -13,6 +13,11 @@ class JadwalUjian extends Model
         return $this->belongsTo(Ujian::class);
     }
 
+    public function ruang()
+    {
+        return $this->belongsTo(Ruang::class, 'ruang_id');
+    }
+
     public function pengawas()
     {
         return $this->belongsTo(Pengawas::class);

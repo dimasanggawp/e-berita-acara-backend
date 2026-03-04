@@ -10,11 +10,18 @@ use App\Http\Controllers\JadwalUjianController;
 use App\Http\Controllers\UjianController;
 use App\Http\Controllers\PengawasController;
 
+// Add a named 'login' route to prevent RouteNotFoundException when Sanctum intercepts unauthenticated requests
+Route::get('/login', function () {
+    return response()->json(['message' => 'Unauthenticated.'], 401);
+})->name('login');
+
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::get('/pengawas/template-import', [PengawasController::class, 'template']);
 Route::get('/jadwal-ujian/template', [JadwalUjianController::class, 'template']);
 Route::get('/peserta-ujian/template', [\App\Http\Controllers\PesertaUjianController::class, 'downloadTemplate']);
+Route::get('/ruang/template-import', [App\Http\Controllers\RuangController::class, 'template']);
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -37,12 +44,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('pengawas', PengawasController::class);
     Route::apiResource('tahun-ajaran', \App\Http\Controllers\TahunAjaranController::class);
 
+    Route::post('/ruang/import', [App\Http\Controllers\RuangController::class, 'import']);
+    Route::apiResource('ruang', App\Http\Controllers\RuangController::class);
+
     Route::post('/peserta-ujian/import', [\App\Http\Controllers\PesertaUjianController::class, 'importCsv']);
     Route::apiResource('peserta-ujian', \App\Http\Controllers\PesertaUjianController::class);
     Route::get('/peserta-ujian-meta', [\App\Http\Controllers\PesertaUjianController::class, 'meta']);
 });
 
 Route::get('/dashboard/attendance-stats', [DashboardController::class, 'attendanceStats']);
+Route::get('/dashboard/attendance-by-campus', [DashboardController::class, 'attendanceByCampus']);
+Route::get('/dashboard/attendance-by-class', [DashboardController::class, 'attendanceByClass']);
+Route::get('/dashboard/attendance-students', [DashboardController::class, 'attendanceStudents']);
 Route::get('/init-data', [ExamReportController::class, 'getInitData']);
 Route::post('/submit-report', [ExamReportController::class, 'store']);
 Route::post('/scan-peserta', [ExamReportController::class, 'scanPeserta']);

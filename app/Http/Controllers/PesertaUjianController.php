@@ -30,7 +30,7 @@ class PesertaUjianController extends Controller
             });
         }
 
-        return $query->with(['ujian', 'jadwalUjians'])
+        return $query->with(['ujian', 'jadwalUjians', 'ruang'])
             ->orderBy('nama', 'asc')
             ->get();
     }
@@ -42,7 +42,7 @@ class PesertaUjianController extends Controller
             'nisn' => 'required|string|unique:peserta_ujians,nisn',
             'nomor_peserta' => 'required|string|unique:peserta_ujians,nomor_peserta',
             'kelas' => 'required|string|max:255',
-            'ruang' => 'nullable|string|max:255',
+            'ruang_id' => 'nullable|exists:ruangs,id',
             'sesi' => 'nullable|string|max:255',
             'ujian_id' => 'required|exists:ujians,id',
         ]);
@@ -51,7 +51,7 @@ class PesertaUjianController extends Controller
 
         // Associate with exact matching schedules
         $query = JadwalUjian::where('ujian_id', $validated['ujian_id'])
-            ->where('ruang', $validated['ruang'] ?? '');
+            ->where('ruang_id', $validated['ruang_id'] ?? null);
 
         if (!empty($validated['sesi'])) {
             $query->where('sesi', $validated['sesi']);
@@ -71,7 +71,7 @@ class PesertaUjianController extends Controller
             'nisn' => 'required|string|unique:peserta_ujians,nisn,' . $id,
             'nomor_peserta' => 'required|string|unique:peserta_ujians,nomor_peserta,' . $id,
             'kelas' => 'required|string|max:255',
-            'ruang' => 'nullable|string|max:255',
+            'ruang_id' => 'nullable|exists:ruangs,id',
             'sesi' => 'nullable|string|max:255',
             'ujian_id' => 'required|exists:ujians,id',
         ]);
@@ -80,7 +80,7 @@ class PesertaUjianController extends Controller
 
         // Update associations to exact matching schedules
         $query = JadwalUjian::where('ujian_id', $validated['ujian_id'])
-            ->where('ruang', $validated['ruang'] ?? '');
+            ->where('ruang_id', $validated['ruang_id'] ?? null);
 
         if (!empty($validated['sesi'])) {
             $query->where('sesi', $validated['sesi']);
@@ -98,10 +98,15 @@ class PesertaUjianController extends Controller
         return response()->json(['message' => 'Deleted successfully']);
     }
 
-    public function meta()
+    public function meta(Request $request)
     {
+        $ruangQuery = \App\Models\Ruang::query();
+        if ($request->has('ujian_id') && !empty($request->ujian_id)) {
+            $ruangQuery->where('ujian_id', $request->ujian_id);
+        }
+
         return response()->json([
-            'kelases' => Kelas::all(),
+            'ruangs' => $ruangQuery->get(),
             'ujians' => Ujian::where('is_active', true)->get(),
         ]);
     }
@@ -183,8 +188,20 @@ class PesertaUjianController extends Controller
             }
 
             try {
-                $ruang = $data[4] ?? '';
+                $namaRuang = $data[4] ?? '';
                 $sesi = $data[5] ?? '';
+
+                $ruangId = null;
+                if (!empty($namaRuang)) {
+                    $ruang = \App\Models\Ruang::where('nama_ruang', $namaRuang)
+                        ->where('ujian_id', $request->ujian_id)
+                        ->first();
+                    if (!$ruang) {
+                        $errors[] = "Error at row " . ($count + 2) . ": Ruang '$namaRuang' tidak ditemukan di Master Data Ruang untuk Ujian yang dipilih.";
+                        continue;
+                    }
+                    $ruangId = $ruang->id;
+                }
 
                 $peserta = PesertaUjian::updateOrCreate(
                     [
@@ -195,14 +212,14 @@ class PesertaUjianController extends Controller
                         'nama' => $data[0],
                         'nomor_peserta' => $data[2],
                         'kelas' => $data[3],
-                        'ruang' => $ruang,
+                        'ruang_id' => $ruangId,
                         'sesi' => $sesi,
                     ]
                 );
 
                 // Find matching schedules that align with this student's room and session
                 $matchingScheduleQuery = JadwalUjian::where('ujian_id', $request->ujian_id)
-                    ->where('ruang', $ruang);
+                    ->where('ruang_id', $ruangId);
 
                 if (!empty($sesi)) {
                     $matchingScheduleQuery->where('sesi', $sesi);
