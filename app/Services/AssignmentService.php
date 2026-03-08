@@ -62,16 +62,22 @@ class AssignmentService
         $kelas_id = null;
         $kelas_name = '-';
         if (!empty($peserta) && $peserta->isNotEmpty()) {
+            // Resolve class names safely (handles both kelas relation and string column)
+            $kelasNamesList = $peserta->map(function ($p) {
+                if ($p->relationLoaded('kelas') && $p->getRelation('kelas')) {
+                    return $p->getRelation('kelas')->nama_kelas;
+                }
+                return $p->getRawOriginal('kelas') ?? null;
+            })->filter()->unique()->values();
+
             $uniqueKelasIds = $peserta->pluck('kelas_id')->unique()->filter()->values();
-            if ($uniqueKelasIds->count() === 1) {
-                // Semua peserta dari 1 kelas yang sama (rombel utuh)
-                $kelas_id = $uniqueKelasIds->first();
-                $firstPeserta = $peserta->first();
-                $kelas_name = $firstPeserta->kelas?->nama_kelas ?? '-';
-            } else if ($uniqueKelasIds->count() > 1) {
-                // Peserta campuran dari beberapa kelas
+
+            if ($kelasNamesList->count() === 1) {
+                $kelas_id = $uniqueKelasIds->count() === 1 ? $uniqueKelasIds->first() : null;
+                $kelas_name = $kelasNamesList->first();
+            } else if ($kelasNamesList->count() > 1) {
                 $kelas_id = null;
-                $kelas_name = 'Gabungan (' . $uniqueKelasIds->count() . ' Kelas)';
+                $kelas_name = 'Gabungan (' . $kelasNamesList->implode(', ') . ')';
             }
         }
 

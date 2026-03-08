@@ -1,0 +1,12 @@
+/vendor
+/node_modules
+/public/build
+/public/hot
+.env
+.env.testing
+.phpunit.cache
+phpunit.xml
+.git
+.gitignore
+/storage/*.key
+/storage/oauth-*.key

@@ -19,6 +19,7 @@ Route::get('/login', function () {
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::get('/pengawas/template-import', [PengawasController::class, 'template']);
+Route::get('/panitia/template-import', [\App\Http\Controllers\PanitiaController::class, 'template']);
 Route::get('/jadwal-ujian/template', [JadwalUjianController::class, 'template']);
 Route::get('/peserta-ujian/template', [\App\Http\Controllers\PesertaUjianController::class, 'downloadTemplate']);
 Route::get('/ruang/template-import', [App\Http\Controllers\RuangController::class, 'template']);
@@ -47,6 +48,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/ruang/import', [App\Http\Controllers\RuangController::class, 'import']);
     Route::apiResource('ruang', App\Http\Controllers\RuangController::class);
+
+    Route::post('/panitia/import', [\App\Http\Controllers\PanitiaController::class, 'import']);
+    Route::apiResource('panitia', \App\Http\Controllers\PanitiaController::class);
 
     Route::post('/peserta-ujian/import', [\App\Http\Controllers\PesertaUjianController::class, 'importCsv']);
     Route::apiResource('peserta-ujian', \App\Http\Controllers\PesertaUjianController::class);

@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: e-berita-acara-backend
+    restart: unless-stopped
+    ports:
+      # Skenario Port Mapping (Opsi 1)
+      # Port luar 8001 mengarah ke Apache Port 80 di container
+      - "8001:80"
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      #- DB_CONNECTION=mysql
+      #- DB_HOST=host.docker.internal # Contoh jika DB di host
+      #- DB_PORT=3306
+      #- DB_DATABASE=berita_acara
+      #- DB_USERNAME=root
+      #- DB_PASSWORD=secret
+    volumes:
+      # Mount storage agar file upload tidak hilang saat container mati/re-create
+      - ./storage:/var/www/html/storage
+      - ./bootstrap/cache:/var/www/html/bootstrap/cache
+    # Jika Anda juga ingin menjalankan DB di aaPanel melalui docker, 
+    # Anda bisa uncomment ini dan menghubungkan networking
+    # networks:
+    #   - aapanel-network
+
+# networks:
+#   aapanel-network:
+#     external: true

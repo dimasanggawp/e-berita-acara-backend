@@ -44,11 +44,20 @@ class LaporanController extends Controller
                             $q->where('sesi', $jadwal->sesi);
                     })->get();
                 if ($peserta->isNotEmpty()) {
-                    $kelasNames = $peserta->pluck('kelas')->unique()->filter();
-                    if ($kelasNames->count() > 1) {
-                        $kelasName = 'Gabungan (' . $kelasNames->count() . ' Kelas)';
-                    } elseif ($kelasNames->count() === 1) {
-                        $kelasName = $kelasNames->first();
+                    // peserta_ujians.kelas may be a string column or a relation
+                    // Try kelas relationship first, fall back to string column
+                    $kelasNamesList = $peserta->map(function ($p) {
+                        if ($p->relationLoaded('kelas') && $p->getRelation('kelas')) {
+                            return $p->getRelation('kelas')->nama_kelas;
+                        }
+                        // Fall back to the string 'kelas' column
+                        return $p->getRawOriginal('kelas') ?? null;
+                    })->filter()->unique()->values();
+
+                    if ($kelasNamesList->count() > 1) {
+                        $kelasName = 'Gabungan (' . $kelasNamesList->implode(', ') . ')';
+                    } elseif ($kelasNamesList->count() === 1) {
+                        $kelasName = $kelasNamesList->first();
                     }
                 }
             }
@@ -112,11 +121,17 @@ class LaporanController extends Controller
                         $q->where('sesi', $jadwal->sesi);
                 })->get();
             if ($peserta->isNotEmpty()) {
-                $kelasNames = $peserta->pluck('kelas')->unique()->filter();
-                if ($kelasNames->count() > 1) {
-                    $kelasName = 'Gabungan (' . $kelasNames->count() . ' Kelas)';
-                } elseif ($kelasNames->count() === 1) {
-                    $kelasName = $kelasNames->first();
+                $kelasNamesList = $peserta->map(function ($p) {
+                    if ($p->relationLoaded('kelas') && $p->getRelation('kelas')) {
+                        return $p->getRelation('kelas')->nama_kelas;
+                    }
+                    return $p->getRawOriginal('kelas') ?? null;
+                })->filter()->unique()->values();
+
+                if ($kelasNamesList->count() > 1) {
+                    $kelasName = 'Gabungan (' . $kelasNamesList->implode(', ') . ')';
+                } elseif ($kelasNamesList->count() === 1) {
+                    $kelasName = $kelasNamesList->first();
                 }
             }
         }
